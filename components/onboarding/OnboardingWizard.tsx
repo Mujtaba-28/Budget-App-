@@ -9,7 +9,6 @@ export const OnboardingWizard: React.FC = () => {
     const { setCurrency, currency } = useTheme();
     const [step, setStep] = useState(1);
     const [name, setName] = useState('');
-    const [budget, setBudget] = useState('50000');
     const [shouldWipe, setShouldWipe] = useState(true);
 
     const currencies = [ '₹', '$', '€', '£', 'AED', '¥' ];
@@ -45,10 +44,10 @@ export const OnboardingWizard: React.FC = () => {
         
         if (step === 3 && !name.trim()) return;
 
-        if (step < 5) setStep(step + 1);
+        if (step < 4) setStep(step + 1);
         else {
-            const budgetAmount = parseInt(budget) || 0;
-            completeOnboarding(name, shouldWipe, budgetAmount);
+            // Step 4 is Final Data Step
+            completeOnboarding(name, shouldWipe, 0);
         }
     };
 
@@ -140,30 +139,8 @@ export const OnboardingWizard: React.FC = () => {
                     </div>
                 )}
 
-                {/* STEP 4: BUDGET */}
+                {/* STEP 4: DATA (Formerly 5) */}
                 {step === 4 && (
-                    <div className="bg-white dark:bg-[#0a3831] p-8 rounded-[2.5rem] shadow-2xl border border-emerald-100 dark:border-emerald-800/30 animate-in slide-in-from-right-8">
-                        <h2 className="text-2xl font-bold text-center text-slate-900 dark:text-white mb-2">Monthly Budget</h2>
-                        <p className="text-center text-slate-400 text-sm mb-8">Set a spending limit to track your progress.</p>
-                        
-                        <div className="relative mb-8">
-                            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-3xl font-bold text-emerald-500">{currency}</span>
-                            <input 
-                                type="number" 
-                                value={budget} 
-                                onChange={e => setBudget(e.target.value)}
-                                className="w-full bg-slate-50 dark:bg-black/20 p-6 pl-14 rounded-3xl text-3xl font-bold outline-none text-emerald-900 dark:text-white focus:ring-2 focus:ring-emerald-500/30 transition-all text-center"
-                            />
-                        </div>
-
-                        <button onClick={handleNext} className="w-full py-4 bg-emerald-950 dark:bg-emerald-100 text-white dark:text-emerald-950 rounded-2xl font-bold">
-                            Set Budget
-                        </button>
-                    </div>
-                )}
-
-                {/* STEP 5: DATA */}
-                {step === 5 && (
                     <div className="bg-white dark:bg-[#0a3831] p-8 rounded-[2.5rem] shadow-2xl border border-emerald-100 dark:border-emerald-800/30 animate-in slide-in-from-right-8">
                         <h2 className="text-2xl font-bold text-center text-slate-900 dark:text-white mb-8">All Set!</h2>
                         
@@ -203,7 +180,7 @@ export const OnboardingWizard: React.FC = () => {
                 
                 {step > 1 && (
                     <div className="flex justify-center gap-2 mt-8">
-                        {[2,3,4,5].map(i => <div key={i} className={`h-1.5 rounded-full transition-all duration-500 ${step >= i ? 'w-8 bg-emerald-500' : 'w-2 bg-slate-300 dark:bg-slate-700'}`}></div>)}
+                        {[2,3,4].map(i => <div key={i} className={`h-1.5 rounded-full transition-all duration-500 ${step >= i ? 'w-8 bg-emerald-500' : 'w-2 bg-slate-300 dark:bg-slate-700'}`}></div>)}
                     </div>
                 )}
             </div>

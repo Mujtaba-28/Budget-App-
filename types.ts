@@ -1,3 +1,4 @@
+
 import { LucideIcon } from 'lucide-react';
 
 export interface Category {
@@ -9,6 +10,15 @@ export interface Category {
 }
 
 export type TransactionType = 'income' | 'expense';
+export type BudgetContext = string;
+
+export interface ContextMetadata {
+    id: string;
+    name: string;
+    description?: string;
+    timeline: 'weekly' | 'monthly' | 'yearly' | 'project';
+    type: 'custom' | 'personal' | 'business';
+}
 
 export interface TransactionSplit {
   category: string;
@@ -23,6 +33,7 @@ export interface Transaction {
   amount: number; // Stored in Base Currency
   date: string;
   type: TransactionType;
+  context?: BudgetContext; // New: Personal vs Business
   icon?: any;
   // Multi-currency support
   originalAmount?: number;
@@ -41,7 +52,7 @@ export interface BudgetMap {
 
 export interface CategoryData extends Category {
   amount: number;
-  budget?: number; // Added for category budgeting
+  budget?: number; 
 }
 
 export interface Subscription {
@@ -51,7 +62,8 @@ export interface Subscription {
   billingCycle: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'half-yearly' | 'yearly';
   nextBillingDate: string;
   category: string;
-  autoPay?: boolean; // New feature
+  autoPay?: boolean;
+  context?: BudgetContext;
 }
 
 export interface Goal {
@@ -62,6 +74,7 @@ export interface Goal {
   deadline?: string;
   color: string;
   icon?: string;
+  context?: BudgetContext;
 }
 
 export interface Debt {
@@ -70,7 +83,8 @@ export interface Debt {
   currentBalance: number;
   interestRate: number; // APR %
   minimumPayment: number;
-  category: string; // e.g., 'Credit Card', 'Loan'
+  category: string; 
+  context?: BudgetContext;
 }
 
 export interface ChatMessage {
@@ -99,4 +113,5 @@ export interface BackupData {
     isDark: boolean;
     currency: string;
   };
+  customContexts?: ContextMetadata[];
 }

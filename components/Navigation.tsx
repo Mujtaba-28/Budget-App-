@@ -38,7 +38,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
                 </button>
             </div>
             <NavButton icon={Compass} label="Plan" isActive={activeTab === 'plan'} onClick={() => setActiveTab('plan')} />
-            <NavButton icon={User} label="Profile" isActive={activeTab === 'accounts'} onClick={() => setActiveTab('accounts')} />
+            <NavButton icon={User} label="Profile" isActive={activeTab === 'profile'} onClick={() => setActiveTab('profile')} />
         </div>
     );
 }

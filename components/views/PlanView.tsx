@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Target, TrendingDown, Repeat, ChevronRight, Wallet, Shield, Zap } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { useTheme } from '../../contexts/ThemeContext';

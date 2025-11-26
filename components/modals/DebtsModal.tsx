@@ -1,10 +1,12 @@
+
 import React, { useState } from 'react';
-import { X, Plus, Trash2, TrendingDown, Percent, Wallet, ArrowRight, CheckCircle2, Edit2 } from 'lucide-react';
+import { X, Plus, Trash2, TrendingDown, Percent, Wallet, ArrowRight, CheckCircle2, Edit2, Tag, CreditCard, Building } from 'lucide-react';
 import { Debt } from '../../types';
 import { calculateDebtPayoff, formatMoney, triggerHaptic } from '../../utils';
 import { useFinance } from '../../contexts/FinanceContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ConfirmationModal } from './ConfirmationModal';
+import { SelectSheet } from '../ui/SelectSheet';
 
 interface DebtsModalProps {
     onClose: () => void;
@@ -67,6 +69,13 @@ export const DebtsModal: React.FC<DebtsModalProps> = ({ onClose }) => {
     const yearsSaved = ((payoff.baselineMonths - payoff.months) / 12).toFixed(1);
     const interestSaved = payoff.baselineInterest - payoff.totalInterest;
 
+    const debtCategories = [
+        { value: 'Credit Card', label: 'Credit Card', icon: CreditCard },
+        { value: 'Loan', label: 'Personal Loan', icon: Wallet },
+        { value: 'Mortgage', label: 'Mortgage', icon: Building },
+        { value: 'Other', label: 'Other Liability', icon: Tag },
+    ];
+
     return (
         <div className="absolute inset-0 z-[100] flex items-end sm:items-center justify-center bg-emerald-950/20 backdrop-blur-sm p-4">
             <div className="w-full max-w-md bg-[#f0fdf4] dark:bg-[#062c26] rounded-[2.5rem] p-6 shadow-2xl border border-white/20 animate-in slide-in-from-bottom-10 duration-300 max-h-[90vh] flex flex-col relative overflow-hidden">
@@ -99,13 +108,21 @@ export const DebtsModal: React.FC<DebtsModalProps> = ({ onClose }) => {
                 </div>
 
                 {isAdding && (
-                    <div className="bg-white dark:bg-[#0a3831] p-6 rounded-[2rem] mb-4 border border-emerald-100 dark:border-emerald-800/30 shrink-0 animate-in zoom-in-95 shadow-xl">
+                    <div className="bg-white dark:bg-[#0a3831] p-6 rounded-[2rem] mb-4 border border-emerald-100 dark:border-emerald-800/30 shrink-0 animate-in zoom-in-95 shadow-xl overflow-visible">
                         <h4 className="font-bold text-sm mb-4 text-emerald-900 dark:text-emerald-100">{editingId ? 'Edit Liability' : 'Add New Liability'}</h4>
                         <div className="space-y-4">
                             <div className="space-y-1">
                                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Name</label>
                                 <input type="text" placeholder="e.g. Credit Card" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-black/20 outline-none text-sm font-bold border border-transparent focus:border-emerald-500 transition-all" value={newDebt.name} onChange={e => setNewDebt({...newDebt, name: e.target.value})} />
                             </div>
+                            
+                            <SelectSheet 
+                                label="Type" 
+                                value={newDebt.category || 'Loan'} 
+                                options={debtCategories} 
+                                onChange={(val) => setNewDebt({...newDebt, category: val})} 
+                            />
+
                             <div className="flex gap-4">
                                 <div className="space-y-1 flex-1">
                                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Balance</label>
@@ -120,7 +137,7 @@ export const DebtsModal: React.FC<DebtsModalProps> = ({ onClose }) => {
                                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Min Payment</label>
                                 <div className="flex gap-2">
                                     <input type="number" placeholder="0" className="flex-1 p-3 rounded-xl bg-slate-50 dark:bg-black/20 outline-none text-sm font-bold border border-transparent focus:border-emerald-500 transition-all" value={newDebt.minimumPayment || ''} onChange={e => setNewDebt({...newDebt, minimumPayment: parseFloat(e.target.value)})} />
-                                    <button onClick={handleSave} className="p-3 bg-emerald-600 text-white rounded-xl font-bold text-sm w-24 shadow-lg active:scale-95 transition-transform">{editingId ? 'Update' : 'Save'}</button>
+                                    <button onClick={handleSave} className="p-3 bg-emerald-600 text-white rounded-xl font-bold text-sm w-24 shadow-lg active:scale-95 transition-transform hover:bg-emerald-700">{editingId ? 'Update' : 'Save'}</button>
                                 </div>
                             </div>
                         </div>
@@ -207,9 +224,9 @@ export const DebtsModal: React.FC<DebtsModalProps> = ({ onClose }) => {
                                 <div>
                                     <h4 className="font-bold text-sm text-emerald-950 dark:text-emerald-50">{debt.name}</h4>
                                     <p className="text-[10px] font-bold text-slate-400 flex items-center gap-2">
-                                        <span className="flex items-center gap-0.5"><Percent size={10}/> {debt.interestRate}%</span>
+                                        <span className="flex items-center gap-0.5"><Tag size={10}/> {debt.category || 'Loan'}</span>
                                         <span>•</span>
-                                        <span>Min: {formatMoney(debt.minimumPayment, currency, false)}</span>
+                                        <span className="flex items-center gap-0.5"><Percent size={10}/> {debt.interestRate}%</span>
                                     </p>
                                 </div>
                             </div>

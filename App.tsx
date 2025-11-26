@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Sparkles, AlertOctagon } from 'lucide-react';
-import { Transaction } from './types';
+import { Eye, EyeOff, Sparkles, AlertOctagon, LayoutGrid, LogOut } from 'lucide-react';
+import { Transaction, BudgetContext } from './types';
 import { HomeView } from './components/views/HomeView';
 import { StatsView } from './components/views/StatsView';
 import { HistoryView } from './components/views/HistoryView';
@@ -16,6 +17,7 @@ import { DebtsModal } from './components/modals/DebtsModal';
 import { AIChatModal } from './components/modals/AIChatModal';
 import { TutorialModal } from './components/modals/TutorialModal';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
+import { BudgetSelector } from './components/onboarding/BudgetSelector';
 import { AppLock } from './components/security/AppLock';
 import { useFinance } from '../../contexts/FinanceContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -23,7 +25,7 @@ import { useHashLocation } from './utils/router';
 import { triggerHaptic } from './utils';
 
 export default function App() {
-  const { transactions, addTransaction, updateTransaction, deleteTransaction, budgets, updateBudget, dataError, isOnboarded, userName } = useFinance();
+  const { transactions, addTransaction, updateTransaction, deleteTransaction, budgets, updateBudget, dataError, isOnboarded, userName, activeContext, setActiveContext } = useFinance();
   const { isDark, currency } = useTheme();
   
   // Hash Router
@@ -32,6 +34,7 @@ export default function App() {
   // Local UI State
   const [currentDate, setCurrentDate] = useState(new Date()); 
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
+  const [showContextPicker, setShowContextPicker] = useState(true);
   
   // Modal Visibility State
   const [showTxModal, setShowTxModal] = useState(false);
@@ -64,7 +67,13 @@ export default function App() {
 
   // Derived Values for Home View
   const currentMonthKey = currentDate.getFullYear() + '-' + String(currentDate.getMonth() + 1).padStart(2, '0');
-  const totalBudget = budgets[currentMonthKey] || budgets['default'] || 60000;
+  
+  // Budget Key logic must match FinanceContext
+  const budgetKey = `${activeContext}-${currentMonthKey}`;
+  const defaultBudgetKey = `${activeContext}-default`;
+  
+  // Fallback to 60000 only for Personal if not set, else 0 to trigger setup prompt
+  const totalBudget = budgets[budgetKey] || budgets[defaultBudgetKey] || (activeContext === 'personal' ? 60000 : 0);
 
   const changeMonth = (offset: number) => {
       const newDate = new Date(currentDate);
@@ -92,10 +101,28 @@ export default function App() {
     setShowTxModal(false);
   };
 
-  const handleUpdateBudget = (newAmount: number, monthKey: string) => {
-    updateBudget(newAmount, monthKey);
+  const handleUpdateBudget = (newAmount: number, monthKey: string, category?: string) => {
+    updateBudget(newAmount, monthKey, category);
     triggerHaptic(20);
     setShowBudgetModal(false);
+  };
+  
+  const handleContextSelect = (ctx: BudgetContext) => {
+      setActiveContext(ctx);
+      setShowContextPicker(false);
+      triggerHaptic(10);
+
+      // Check if budget is set for this context
+      const d = new Date();
+      const mKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      const bKey = `${ctx}-${mKey}`;
+      const defKey = `${ctx}-default`;
+      // Access budgets directly from context scope
+      const budgetExists = budgets[bKey] || budgets[defKey] || (ctx === 'personal' ? 60000 : 0);
+      
+      if (!budgetExists) {
+          setTimeout(() => setShowBudgetModal(true), 300);
+      }
   };
 
   if (isLocked && savedPin) {
@@ -126,6 +153,15 @@ export default function App() {
           </div>
       )
   }
+  
+  // --- RENDER BUDGET SELECTOR (GATEWAY) ---
+  if (showContextPicker) {
+      return (
+          <div className={`${isDark ? 'dark' : ''}`}>
+              <BudgetSelector onSelect={handleContextSelect} userName={userName} />
+          </div>
+      );
+  }
 
   const renderContent = () => {
     switch(activeTab) {
@@ -134,7 +170,6 @@ export default function App() {
           <HomeView 
             currentDate={currentDate}
             changeMonth={changeMonth}
-            totalBudget={totalBudget}
             onEditBudget={() => setShowBudgetModal(true)}
             onEditTx={(tx) => { setEditingTx(tx); setShowTxModal(true); }}
             onGoToStats={() => navigate('stats')}
@@ -161,7 +196,8 @@ export default function App() {
                   isPrivacyMode={isPrivacyMode}
               />
           );
-      case 'accounts':
+      case 'profile':
+      case 'accounts': // Keep legacy key just in case
         return (
             <AccountsView 
                 onOpenSettings={() => setShowSettingsModal(true)} 
@@ -172,7 +208,6 @@ export default function App() {
           <HomeView 
             currentDate={currentDate}
             changeMonth={changeMonth}
-            totalBudget={totalBudget}
             onEditBudget={() => setShowBudgetModal(true)}
             onEditTx={(tx) => { setEditingTx(tx); setShowTxModal(true); }}
             onGoToStats={() => navigate('stats')}
@@ -189,16 +224,25 @@ export default function App() {
         
         {/* Header */}
         <div className="relative pt-12 px-6 flex justify-between items-center z-20 mb-6 shrink-0 max-w-md mx-auto w-full">
-            <div className="flex items-center gap-3 cursor-pointer active:scale-95 transition-transform" onClick={() => navigate('accounts')}>
+            <div className="flex items-center gap-3 cursor-pointer active:scale-95 transition-transform" onClick={() => navigate('profile')}>
               <div className="w-12 h-12 rounded-full bg-emerald-100 overflow-hidden border border-emerald-200">
                  <img src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${userName}`} alt="Avatar" className="w-full h-full object-cover" />
               </div>
               <div>
-                <p className="text-xs font-bold text-emerald-600/70 dark:text-emerald-400/70 tracking-wider">Welcome</p>
+                <p className="text-xs font-bold text-emerald-600/70 dark:text-emerald-400/70 tracking-wider uppercase">
+                    Welcome
+                </p>
                 <h2 className="text-xl font-bold text-emerald-950 dark:text-emerald-50">{userName}</h2>
               </div>
             </div>
             <div className="flex gap-2">
+                <button 
+                    onClick={() => { setShowContextPicker(true); triggerHaptic(10); }}
+                    aria-label="Switch Budget"
+                    className="p-3 rounded-full bg-slate-100 dark:bg-black/20 text-slate-500 hover:bg-emerald-100 hover:text-emerald-600 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-400 transition-colors backdrop-blur-sm"
+                >
+                    <LayoutGrid size={20} />
+                </button>
                 <button 
                     onClick={() => setShowAIChat(true)}
                     aria-label="Open AI Assistant"
@@ -221,7 +265,7 @@ export default function App() {
         </div>
         
         <Navigation 
-            activeTab={activeTab} 
+            activeTab={activeTab === 'accounts' ? 'profile' : activeTab} 
             setActiveTab={(tab) => { triggerHaptic(5); navigate(tab); }} 
             onAddClick={() => { triggerHaptic(10); setEditingTx(null); setShowTxModal(true); }}
         />

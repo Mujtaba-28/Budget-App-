@@ -14,10 +14,11 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         try {
             if (typeof window !== 'undefined') {
                 const saved = localStorage.getItem('emerald_theme');
-                return saved ? JSON.parse(saved) : false;
+                // Default to TRUE (Dark Mode) if no preference saved
+                return saved ? JSON.parse(saved) : true;
             }
         } catch (e) { console.error("Theme Load Error", e); }
-        return false;
+        return true; 
     });
 
     const [currency, setCurrency] = useState(() => {

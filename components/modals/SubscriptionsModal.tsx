@@ -1,11 +1,13 @@
+
 import React, { useState } from 'react';
-import { X, Plus, Calendar, Trash2, Zap, LayoutGrid, List, Edit2, PlayCircle } from 'lucide-react';
+import { X, Plus, Calendar, Trash2, Zap, LayoutGrid, List, Edit2, PlayCircle, Repeat, Tag } from 'lucide-react';
 import { Subscription } from '../../types';
 import { EXPENSE_CATEGORIES } from '../../constants';
 import { formatMoney, triggerHaptic } from '../../utils';
 import { useFinance } from '../../contexts/FinanceContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ConfirmationModal } from './ConfirmationModal';
+import { SelectSheet } from '../ui/SelectSheet';
 
 interface SubscriptionsModalProps {
     onClose: () => void;
@@ -75,13 +77,19 @@ export const SubscriptionsModal: React.FC<SubscriptionsModalProps> = ({ onClose 
     const totalMonthly = subscriptions.reduce((acc, sub) => acc + calculateMonthlyCost(sub.amount, sub.billingCycle), 0);
 
     const cycleOptions = [
-        { value: 'daily', label: 'Daily' },
-        { value: 'weekly', label: 'Weekly' },
-        { value: 'monthly', label: 'Monthly' },
-        { value: 'quarterly', label: 'Quarterly' },
-        { value: 'half-yearly', label: 'Half Yearly' },
-        { value: 'yearly', label: 'Yearly' },
+        { value: 'daily', label: 'Daily', icon: Repeat },
+        { value: 'weekly', label: 'Weekly', icon: Repeat },
+        { value: 'monthly', label: 'Monthly', icon: Repeat },
+        { value: 'quarterly', label: 'Quarterly', icon: Repeat },
+        { value: 'half-yearly', label: 'Half Yearly', icon: Repeat },
+        { value: 'yearly', label: 'Yearly', icon: Repeat },
     ];
+
+    const categoryOptions = EXPENSE_CATEGORIES.map(c => ({
+        value: c.name,
+        label: c.name,
+        icon: c.icon
+    }));
 
     // Calendar Generation
     const generateCalendarDays = () => {
@@ -134,24 +142,32 @@ export const SubscriptionsModal: React.FC<SubscriptionsModalProps> = ({ onClose 
                 </div>
 
                 {isAdding && (
-                    <div className="bg-white dark:bg-[#0a3831] p-4 rounded-3xl mb-4 border border-emerald-100 dark:border-emerald-800/30 shrink-0 animate-in zoom-in-95">
+                    <div className="bg-white dark:bg-[#0a3831] p-4 rounded-3xl mb-4 border border-emerald-100 dark:border-emerald-800/30 shrink-0 animate-in zoom-in-95 overflow-visible">
                         <h4 className="font-bold text-sm mb-3 text-emerald-900 dark:text-emerald-100">{editingId ? 'Edit Subscription' : 'Add Recurring Bill'}</h4>
                         <div className="space-y-3">
-                            <input type="text" placeholder="Service Name (e.g. Netflix)" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-black/20 outline-none text-sm font-bold" value={newSub.name} onChange={e => setNewSub({...newSub, name: e.target.value})} />
+                            <input type="text" placeholder="Service Name (e.g. Netflix)" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-black/20 outline-none text-sm font-bold border border-transparent focus:border-emerald-500 transition-all" value={newSub.name} onChange={e => setNewSub({...newSub, name: e.target.value})} />
+                            
                             <div className="flex gap-2">
-                                <input type="number" placeholder="Amount" className="flex-1 p-3 rounded-xl bg-slate-50 dark:bg-black/20 outline-none text-sm font-bold" value={newSub.amount || ''} onChange={e => setNewSub({...newSub, amount: parseFloat(e.target.value)})} />
-                                <select 
-                                    className="flex-1 p-3 rounded-xl bg-slate-50 dark:bg-black/20 outline-none text-sm font-bold" 
-                                    value={newSub.billingCycle} 
-                                    onChange={e => setNewSub({...newSub, billingCycle: e.target.value as any})}
-                                >
-                                    {cycleOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                                </select>
+                                <input type="number" placeholder="Amount" className="flex-1 p-3 rounded-xl bg-slate-50 dark:bg-black/20 outline-none text-sm font-bold border border-transparent focus:border-emerald-500 transition-all" value={newSub.amount || ''} onChange={e => setNewSub({...newSub, amount: parseFloat(e.target.value)})} />
+                                <div className="flex-1">
+                                    <SelectSheet 
+                                        label="Cycle" 
+                                        value={newSub.billingCycle || 'monthly'} 
+                                        options={cycleOptions} 
+                                        onChange={(val) => setNewSub({...newSub, billingCycle: val as any})} 
+                                    />
+                                </div>
                             </div>
+                            
                             <div className="flex gap-2">
-                                <select className="flex-1 p-3 rounded-xl bg-slate-50 dark:bg-black/20 outline-none text-sm font-bold" value={newSub.category} onChange={e => setNewSub({...newSub, category: e.target.value})}>
-                                    {EXPENSE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                                </select>
+                                <div className="flex-1">
+                                    <SelectSheet 
+                                        label="Category" 
+                                        value={newSub.category || 'Bills'} 
+                                        options={categoryOptions} 
+                                        onChange={(val) => setNewSub({...newSub, category: val})} 
+                                    />
+                                </div>
                             </div>
                             
                             {/* Auto Pay Toggle */}
@@ -171,9 +187,9 @@ export const SubscriptionsModal: React.FC<SubscriptionsModalProps> = ({ onClose 
                                 </div>
                             </div>
 
-                            <div className="flex gap-2 items-center">
-                                <input type="date" className="flex-1 p-3 rounded-xl bg-slate-50 dark:bg-black/20 outline-none text-sm font-bold" value={newSub.nextBillingDate} onChange={e => setNewSub({...newSub, nextBillingDate: e.target.value})} />
-                                <button onClick={handleSave} className="p-3 bg-emerald-500 text-white rounded-xl font-bold text-sm flex-1">{editingId ? 'Update' : 'Save'}</button>
+                            <div className="flex gap-2 items-center pt-2">
+                                <input type="date" className="flex-1 p-3 rounded-xl bg-slate-50 dark:bg-black/20 outline-none text-sm font-bold border border-transparent focus:border-emerald-500 transition-all" value={newSub.nextBillingDate} onChange={e => setNewSub({...newSub, nextBillingDate: e.target.value})} />
+                                <button onClick={handleSave} className="p-3 bg-emerald-600 text-white rounded-xl font-bold text-sm flex-1 hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20">{editingId ? 'Update' : 'Save'}</button>
                             </div>
                         </div>
                     </div>
