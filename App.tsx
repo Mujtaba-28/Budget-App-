@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Sparkles, AlertOctagon, LayoutGrid, LogOut } from 'lucide-react';
 import { Transaction, BudgetContext } from './types';
@@ -19,13 +20,13 @@ import { TutorialModal } from './components/modals/TutorialModal';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { BudgetSelector } from './components/onboarding/BudgetSelector';
 import { AppLock } from './components/security/AppLock';
-import { useFinance } from '../../contexts/FinanceContext';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useFinance } from './contexts/FinanceContext';
+import { useTheme } from './contexts/ThemeContext';
 import { useHashLocation } from './utils/router';
 import { triggerHaptic } from './utils';
 
 export default function App() {
-  const { transactions, addTransaction, updateTransaction, deleteTransaction, budgets, updateBudget, dataError, isOnboarded, userName, activeContext, setActiveContext } = useFinance();
+  const { transactions, addTransaction, updateTransaction, deleteTransaction, budgets, updateBudget, dataError, isOnboarded, userName, activeContext, setActiveContext } from useFinance();
   const { isDark, currency } = useTheme();
   
   // Hash Router
