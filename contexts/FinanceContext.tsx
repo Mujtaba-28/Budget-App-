@@ -1,8 +1,7 @@
 
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Transaction, BudgetMap, Subscription, Goal, Debt, BackupData } from '../types';
-import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS, INITIAL_SUBSCRIPTIONS, INITIAL_GOALS, INITIAL_DEBTS } from '../components/views/constants';
+import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS, INITIAL_SUBSCRIPTIONS, INITIAL_GOALS, INITIAL_DEBTS } from '../constants';
 import { saveAttachment, deleteAttachment, clearDB, getAllAttachments, restoreAttachments } from '../utils/db';
 
 interface FinanceContextType {

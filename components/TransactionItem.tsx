@@ -1,6 +1,6 @@
 import React from 'react';
 import { Transaction } from '../types';
-import { getCategoryDetails } from './views/constants';
+import { getCategoryDetails } from '../constants';
 import { formatDate } from '../utils';
 
 interface TransactionItemProps {

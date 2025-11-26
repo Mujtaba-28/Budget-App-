@@ -1,9 +1,8 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, AlertTriangle, ThumbsUp, BarChart, Settings2, Eye, EyeOff, ArrowUp, ArrowDown, Loader2, HelpCircle, GripVertical, Check, EyeOff as EyeOffIcon } from 'lucide-react';
 import { CategoryData, DashboardCard } from '../../types';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from './constants';
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../../constants';
 import { formatMoney } from '../../utils';
 import { useFinance } from '../../contexts/FinanceContext';
 import { useTheme } from '../../contexts/ThemeContext';

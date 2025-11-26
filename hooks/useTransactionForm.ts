@@ -1,8 +1,7 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Transaction, TransactionType, TransactionSplit } from '../types';
-import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '../components/views/constants';
+import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '../constants';
 import { GoogleGenAI, Type } from "@google/genai";
 import { fileToGenerativePart, getExchangeRate, compressImage } from '../utils';
 import { getAttachment } from '../utils/db';
