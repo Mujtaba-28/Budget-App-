@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, AlertTriangle, ThumbsUp, BarChart, Settings2, Eye, EyeOff, ArrowUp, ArrowDown, Loader2, HelpCircle, GripVertical, Check, EyeOff as EyeOffIcon } from 'lucide-react';
 import { CategoryData, DashboardCard } from '../../types';
@@ -28,6 +27,8 @@ export const StatsView: React.FC<StatsViewProps> = ({ isPrivacyMode, currentDate
     // Default Layout State
     const [cardOrder, setCardOrder] = useState<DashboardCard[]>([
         { id: 'prediction', label: 'Forecast & Status', visible: true },
+        { id: 'cashflow', label: '6-Month Cash Flow', visible: true },
+        { id: 'cat_budgets', label: 'Category Limits', visible: true },
         { id: 'trend', label: 'Spending Trends', visible: true },
         { id: 'averages', label: 'Daily Averages', visible: true },
         { id: 'breakdown', label: 'Visual Breakdown', visible: true },
@@ -48,9 +49,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ isPrivacyMode, currentDate
 
     useEffect(() => {
         if (workerRef.current) {
-            // NOTE: Removed setIsLoading(true) to prevent UI flashing/animation reset on month change
-            
-            // CRITICAL: Strip icons (functions) from categories AND transactions to prevent DataCloneError
             const sanitizeCats = (cats: any[]) => cats.map(({ icon, ...rest }) => rest);
             const sanitizeTxs = (txs: any[]) => txs.map(({ icon, ...rest }) => rest);
 
@@ -83,7 +81,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ isPrivacyMode, currentDate
     // --- RENDER ---
     const currentMonthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
 
-    // Show spinner ONLY on initial load, not subsequent updates
     if (!stats && isLoading) {
         return (
             <div className="flex flex-col items-center justify-center py-20 animate-pulse">
@@ -93,13 +90,12 @@ export const StatsView: React.FC<StatsViewProps> = ({ isPrivacyMode, currentDate
         );
     }
     
-    // Fallback if stats are null but loading finished (error case)
     if (!stats) return null;
 
     const { 
         activeTotal, cumulativeSpending, predictedTotal, isOverBudget, 
         currentDailyAverage, categoryData, maxCategoryVal, totalForDonut, 
-        currentBudget, daysInMonth, runningTotal
+        currentBudget, daysInMonth, runningTotal, cashFlow
     } = stats;
     
     const daysLeft = daysInMonth - new Date().getDate();
@@ -186,6 +182,66 @@ export const StatsView: React.FC<StatsViewProps> = ({ isPrivacyMode, currentDate
                                 {viewType === 'expense' ? 'Spend' : 'Income'} Forecast: {formatMoney(predictedTotal, currency, isPrivacyMode)}. 
                             </p>
                         </div>
+                    </div>
+                </div>
+            );
+        } else if (card.id === 'cashflow') {
+            const maxCF = Math.max(...cashFlow.map((c: any) => Math.max(c.income, c.expense)), 100);
+            return (
+                <div key={card.id} className="bg-white dark:bg-[#0a3831] p-6 rounded-[2rem] shadow-sm border border-emerald-100 dark:border-emerald-800/30">
+                     <h3 className="font-bold text-emerald-950 dark:text-emerald-50 mb-6 flex items-center gap-2">6-Month Cash Flow</h3>
+                     <div className="flex justify-between items-end h-32 gap-2">
+                         {cashFlow.map((cf: any, i: number) => (
+                             <div key={i} className="flex flex-col items-center flex-1 gap-1">
+                                 <div className="flex gap-0.5 items-end w-full justify-center h-full">
+                                     <div className="w-1.5 bg-emerald-400 rounded-t-sm" style={{ height: `${(cf.income / maxCF) * 100}%` }}></div>
+                                     <div className="w-1.5 bg-rose-400 rounded-t-sm" style={{ height: `${(cf.expense / maxCF) * 100}%` }}></div>
+                                 </div>
+                                 <span className="text-[9px] font-bold text-slate-400 uppercase">{cf.month}</span>
+                             </div>
+                         ))}
+                     </div>
+                     <div className="flex gap-4 justify-center mt-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                         <span className="flex items-center gap-1"><div className="w-2 h-2 bg-emerald-400 rounded-full"></div> Income</span>
+                         <span className="flex items-center gap-1"><div className="w-2 h-2 bg-rose-400 rounded-full"></div> Expense</span>
+                     </div>
+                </div>
+            );
+        } else if (card.id === 'cat_budgets' && viewType === 'expense') {
+            return (
+                <div key={card.id} className="bg-white dark:bg-[#0a3831] p-6 rounded-[2rem] shadow-sm border border-emerald-100 dark:border-emerald-800/30">
+                    <h3 className="font-bold text-emerald-950 dark:text-emerald-50 mb-4">Category Budgets</h3>
+                    <div className="space-y-4">
+                        {categoryData.filter((c: any) => c.budget > 0).map((cat: any) => {
+                             const percent = (cat.amount / cat.budget) * 100;
+                             const isOver = percent > 100;
+                             // Re-attach icon
+                             const originalCategory = EXPENSE_CATEGORIES.find(c => c.name === cat.name);
+                             const Icon = originalCategory?.icon || HelpCircle;
+                             
+                             return (
+                                 <div key={cat.id}>
+                                     <div className="flex justify-between text-xs font-bold mb-1">
+                                         <div className="flex items-center gap-2">
+                                            <Icon size={12} className="text-slate-400"/>
+                                            <span className="text-emerald-900 dark:text-emerald-100">{cat.name}</span>
+                                         </div>
+                                         <span className={isOver ? 'text-rose-500' : 'text-slate-400'}>
+                                             {formatMoney(cat.amount, currency, isPrivacyMode)} / {formatMoney(cat.budget, currency, isPrivacyMode)}
+                                         </span>
+                                     </div>
+                                     <div className="h-2 w-full bg-slate-100 dark:bg-black/30 rounded-full overflow-hidden">
+                                         <div 
+                                            className={`h-full rounded-full ${isOver ? 'bg-rose-500' : 'bg-emerald-500'}`} 
+                                            style={{ width: `${Math.min(percent, 100)}%` }}
+                                         ></div>
+                                     </div>
+                                 </div>
+                             )
+                        })}
+                        {categoryData.filter((c: any) => c.budget > 0).length === 0 && (
+                            <p className="text-center text-xs text-slate-400 py-4">No category limits set.</p>
+                        )}
                     </div>
                 </div>
             );

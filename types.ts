@@ -41,6 +41,7 @@ export interface BudgetMap {
 
 export interface CategoryData extends Category {
   amount: number;
+  budget?: number; // Added for category budgeting
 }
 
 export interface Subscription {
@@ -50,6 +51,7 @@ export interface Subscription {
   billingCycle: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'half-yearly' | 'yearly';
   nextBillingDate: string;
   category: string;
+  autoPay?: boolean; // New feature
 }
 
 export interface Goal {

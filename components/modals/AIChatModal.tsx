@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Send, Sparkles, User, Bot, Loader2 } from 'lucide-react';
+import { X, Send, Sparkles, User, Bot, Loader2, AlertTriangle } from 'lucide-react';
 import { GoogleGenAI, FunctionDeclaration, Type } from "@google/genai";
 import { ChatMessage } from '../../types';
 import { useFinance } from '../../contexts/FinanceContext';
@@ -12,7 +12,7 @@ interface AIChatModalProps {
 }
 
 export const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, totalBudget }) => {
-    const { transactions, subscriptions, addTransaction, addGoal, updateBudget, addSubscription } = useFinance();
+    const { addTransaction, addGoal, updateBudget, addSubscription } = useFinance();
     const { currency } = useTheme();
     const [messages, setMessages] = useState<ChatMessage[]>([
         { id: '1', role: 'model', text: `Hi! I can now perform actions. Try saying "Add a goal for New Car 50k" or "Spent 500 on Food".`, timestamp: new Date() }
@@ -20,6 +20,9 @@ export const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, totalBudget }
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    
+    // Graceful Degradation: Check for API Key
+    const hasApiKey = !!process.env.API_KEY;
 
     const scrollToBottom = () => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); };
     useEffect(() => { scrollToBottom(); }, [messages]);
@@ -80,7 +83,7 @@ export const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, totalBudget }
     };
 
     const handleSend = async () => {
-        if (!input.trim()) return;
+        if (!input.trim() || !hasApiKey) return;
         const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', text: input, timestamp: new Date() };
         setMessages(prev => [...prev, userMsg]);
         setInput('');
@@ -177,36 +180,52 @@ export const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, totalBudget }
                     </div>
                     <button onClick={onClose} aria-label="Close Chat" className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={20}/></button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 dark:bg-[#021c17]">
-                    {messages.map(msg => (
-                        <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                             <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-slate-200 dark:bg-slate-700' : 'bg-emerald-100 dark:bg-emerald-900'}`}>
-                                {msg.role === 'user' ? <User size={16} className="text-slate-600 dark:text-slate-300"/> : <Bot size={16} className="text-emerald-600 dark:text-emerald-400"/>}
-                            </div>
-                            <div className={`max-w-[80%] p-3 rounded-2xl text-sm leading-relaxed ${
-                                msg.role === 'user' ? 'bg-emerald-600 text-white rounded-tr-none' : 'bg-white dark:bg-[#0a3831] text-slate-800 dark:text-emerald-50 shadow-sm border border-slate-100 dark:border-emerald-800/30 rounded-tl-none'
-                            }`}>
-                                {msg.text}
-                            </div>
+                
+                {!hasApiKey ? (
+                    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                         <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center text-amber-500 mb-4">
+                             <AlertTriangle size={32}/>
+                         </div>
+                         <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">AI Not Configured</h3>
+                         <p className="text-slate-500 text-sm mb-6">
+                             To use the AI Assistant, please deploy the app with a valid Google Gemini API Key.
+                         </p>
+                         <button onClick={onClose} className="px-6 py-3 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold text-slate-600 dark:text-slate-300">Close</button>
+                    </div>
+                ) : (
+                    <>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 dark:bg-[#021c17]">
+                            {messages.map(msg => (
+                                <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-slate-200 dark:bg-slate-700' : 'bg-emerald-100 dark:bg-emerald-900'}`}>
+                                        {msg.role === 'user' ? <User size={16} className="text-slate-600 dark:text-slate-300"/> : <Bot size={16} className="text-emerald-600 dark:text-emerald-400"/>}
+                                    </div>
+                                    <div className={`max-w-[80%] p-3 rounded-2xl text-sm leading-relaxed ${
+                                        msg.role === 'user' ? 'bg-emerald-600 text-white rounded-tr-none' : 'bg-white dark:bg-[#0a3831] text-slate-800 dark:text-emerald-50 shadow-sm border border-slate-100 dark:border-emerald-800/30 rounded-tl-none'
+                                    }`}>
+                                        {msg.text}
+                                    </div>
+                                </div>
+                            ))}
+                            {isLoading && <Loader2 className="animate-spin text-emerald-500 mx-auto"/>}
+                            <div ref={messagesEndRef} />
                         </div>
-                    ))}
-                    {isLoading && <Loader2 className="animate-spin text-emerald-500 mx-auto"/>}
-                    <div ref={messagesEndRef} />
-                </div>
-                <div className="p-3 bg-white dark:bg-[#0a3831] border-t border-slate-100 dark:border-emerald-800/30 shrink-0">
-                    <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="flex gap-2">
-                        <input 
-                            type="text" 
-                            value={input} 
-                            onChange={e => setInput(e.target.value)}
-                            placeholder="Add expense 500 for Food..." 
-                            className="flex-1 bg-slate-100 dark:bg-black/20 rounded-xl px-4 py-3 outline-none text-sm text-slate-900 dark:text-emerald-50 focus:ring-2 focus:ring-emerald-500/50"
-                        />
-                        <button type="submit" disabled={!input.trim() || isLoading} className="p-3 bg-emerald-600 text-white rounded-xl disabled:opacity-50 hover:bg-emerald-700 transition-colors">
-                            <Send size={20} />
-                        </button>
-                    </form>
-                </div>
+                        <div className="p-3 bg-white dark:bg-[#0a3831] border-t border-slate-100 dark:border-emerald-800/30 shrink-0">
+                            <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    value={input} 
+                                    onChange={e => setInput(e.target.value)}
+                                    placeholder="Add expense 500 for Food..." 
+                                    className="flex-1 bg-slate-100 dark:bg-black/20 rounded-xl px-4 py-3 outline-none text-sm text-slate-900 dark:text-emerald-50 focus:ring-2 focus:ring-emerald-500/50"
+                                />
+                                <button type="submit" disabled={!input.trim() || isLoading} className="p-3 bg-emerald-600 text-white rounded-xl disabled:opacity-50 hover:bg-emerald-700 transition-colors">
+                                    <Send size={20} />
+                                </button>
+                            </form>
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     );

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Plus, Calendar, Trash2, Zap, LayoutGrid, List, Edit2 } from 'lucide-react';
+import { X, Plus, Calendar, Trash2, Zap, LayoutGrid, List, Edit2, PlayCircle } from 'lucide-react';
 import { Subscription } from '../../types';
 import { EXPENSE_CATEGORIES } from '../../constants';
 import { formatMoney, triggerHaptic } from '../../utils';
@@ -20,7 +20,7 @@ export const SubscriptionsModal: React.FC<SubscriptionsModalProps> = ({ onClose 
     const [deleteId, setDeleteId] = useState<string | null>(null);
     
     const [newSub, setNewSub] = useState<Partial<Subscription>>({
-        name: '', amount: 0, category: 'Bills', billingCycle: 'monthly', nextBillingDate: new Date().toISOString().split('T')[0]
+        name: '', amount: 0, category: 'Bills', billingCycle: 'monthly', nextBillingDate: new Date().toISOString().split('T')[0], autoPay: false
     });
 
     const handleEdit = (sub: Subscription) => {
@@ -40,7 +40,8 @@ export const SubscriptionsModal: React.FC<SubscriptionsModalProps> = ({ onClose 
             amount: Number(newSub.amount),
             billingCycle: newSub.billingCycle as any || 'monthly',
             nextBillingDate: newSub.nextBillingDate || new Date().toISOString(),
-            category: newSub.category || 'Bills'
+            category: newSub.category || 'Bills',
+            autoPay: newSub.autoPay
         };
 
         if (editingId) updateSubscription(subData);
@@ -50,7 +51,7 @@ export const SubscriptionsModal: React.FC<SubscriptionsModalProps> = ({ onClose 
         // Reset
         setIsAdding(false);
         setEditingId(null);
-        setNewSub({ name: '', amount: 0, category: 'Bills', billingCycle: 'monthly', nextBillingDate: new Date().toISOString().split('T')[0] });
+        setNewSub({ name: '', amount: 0, category: 'Bills', billingCycle: 'monthly', nextBillingDate: new Date().toISOString().split('T')[0], autoPay: false });
     };
 
     const handleDelete = (id: string) => {
@@ -122,7 +123,7 @@ export const SubscriptionsModal: React.FC<SubscriptionsModalProps> = ({ onClose 
                         onClick={() => {
                             setIsAdding(!isAdding);
                             setEditingId(null);
-                            setNewSub({ name: '', amount: 0, category: 'Bills', billingCycle: 'monthly', nextBillingDate: new Date().toISOString().split('T')[0] });
+                            setNewSub({ name: '', amount: 0, category: 'Bills', billingCycle: 'monthly', nextBillingDate: new Date().toISOString().split('T')[0], autoPay: false });
                             setDeleteId(null);
                         }} 
                         aria-label="Add Subscription" 
@@ -152,6 +153,24 @@ export const SubscriptionsModal: React.FC<SubscriptionsModalProps> = ({ onClose 
                                     {EXPENSE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                 </select>
                             </div>
+                            
+                            {/* Auto Pay Toggle */}
+                            <div 
+                                onClick={() => setNewSub({...newSub, autoPay: !newSub.autoPay})}
+                                className={`p-3 rounded-xl flex items-center justify-between cursor-pointer border transition-all ${newSub.autoPay ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800' : 'bg-slate-50 border-transparent dark:bg-black/20'}`}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Zap size={18} className={newSub.autoPay ? 'text-indigo-600' : 'text-slate-400'} fill={newSub.autoPay ? 'currentColor' : 'none'}/>
+                                    <div className="flex flex-col">
+                                        <span className={`text-xs font-bold ${newSub.autoPay ? 'text-indigo-900 dark:text-indigo-100' : 'text-slate-500'}`}>Auto-Create Transaction</span>
+                                        <span className="text-[10px] text-slate-400">Add to expenses automatically on due date</span>
+                                    </div>
+                                </div>
+                                <div className={`w-10 h-6 rounded-full p-1 transition-colors ${newSub.autoPay ? 'bg-indigo-600' : 'bg-slate-300'}`}>
+                                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${newSub.autoPay ? 'translate-x-4' : ''}`}></div>
+                                </div>
+                            </div>
+
                             <div className="flex gap-2 items-center">
                                 <input type="date" className="flex-1 p-3 rounded-xl bg-slate-50 dark:bg-black/20 outline-none text-sm font-bold" value={newSub.nextBillingDate} onChange={e => setNewSub({...newSub, nextBillingDate: e.target.value})} />
                                 <button onClick={handleSave} className="p-3 bg-emerald-500 text-white rounded-xl font-bold text-sm flex-1">{editingId ? 'Update' : 'Save'}</button>
@@ -183,7 +202,10 @@ export const SubscriptionsModal: React.FC<SubscriptionsModalProps> = ({ onClose 
                                             <Calendar size={18} />
                                         </div>
                                         <div>
-                                            <h4 className="font-bold text-sm text-emerald-950 dark:text-emerald-50">{sub.name}</h4>
+                                            <h4 className="font-bold text-sm text-emerald-950 dark:text-emerald-50 flex items-center gap-1">
+                                                {sub.name}
+                                                {sub.autoPay && <Zap size={12} className="text-indigo-500" fill="currentColor"/>}
+                                            </h4>
                                             <p className={`text-[10px] font-bold ${isDueSoon ? 'text-rose-500' : 'text-slate-400'}`}>
                                                 {daysLeft < 0 ? 'Overdue' : `Due in ${daysLeft} days`} • <span className="capitalize">{sub.billingCycle}</span>
                                             </p>
@@ -221,7 +243,7 @@ export const SubscriptionsModal: React.FC<SubscriptionsModalProps> = ({ onClose 
                                         {hasBill && (
                                             <div className="flex -space-x-1 mt-1">
                                                 {billsOnDay.map((bill, idx) => (
-                                                    <div key={bill.id} className="w-1.5 h-1.5 rounded-full bg-rose-500 ring-1 ring-white" title={`${bill.name} - ${bill.amount}`}></div>
+                                                    <div key={bill.id} className={`w-1.5 h-1.5 rounded-full ring-1 ring-white ${bill.autoPay ? 'bg-indigo-500' : 'bg-rose-500'}`} title={`${bill.name}`}></div>
                                                 ))}
                                             </div>
                                         )}
@@ -233,7 +255,10 @@ export const SubscriptionsModal: React.FC<SubscriptionsModalProps> = ({ onClose 
                              <h5 className="text-xs font-bold text-emerald-900 dark:text-emerald-100 uppercase tracking-wider">Upcoming this month</h5>
                              {subscriptions.sort((a,b) => new Date(a.nextBillingDate).getDate() - new Date(b.nextBillingDate).getDate()).map(sub => (
                                  <div key={sub.id} className="flex justify-between text-xs font-medium text-slate-500">
-                                     <span>{new Date(sub.nextBillingDate).getDate()}th - {sub.name}</span>
+                                     <span className="flex items-center gap-1">
+                                         {new Date(sub.nextBillingDate).getDate()}th - {sub.name}
+                                         {sub.autoPay && <Zap size={10} className="text-indigo-500" fill="currentColor"/>}
+                                     </span>
                                      <span>{formatMoney(sub.amount, currency, false)}</span>
                                  </div>
                              ))}

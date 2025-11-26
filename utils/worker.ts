@@ -8,15 +8,14 @@ self.onmessage = function(e) {
     
     try {
         const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-        
-        // Filter transactions for the selected date
+        const currentBudgetKey = currentDate.getFullYear() + '-' + String(currentDate.getMonth() + 1).padStart(2, '0');
+        const currentBudget = budgets[currentBudgetKey] || budgets['default'] || 60000;
+
+        // --- MONTHLY DATA CALCULATION ---
         const monthlyTransactions = transactions.filter(t => {
             const tDate = new Date(t.date);
             return tDate.getMonth() === currentDate.getMonth() && tDate.getFullYear() === currentDate.getFullYear();
         });
-
-        const currentBudgetKey = currentDate.getFullYear() + '-' + String(currentDate.getMonth() + 1).padStart(2, '0');
-        const currentBudget = budgets[currentBudgetKey] || budgets['default'] || 60000;
 
         // Flatten splits
         const flatTransactions = monthlyTransactions.flatMap(t => {
@@ -58,15 +57,38 @@ self.onmessage = function(e) {
         const predictedTotal = activeTotal + (currentDailyAverage * daysLeft);
         const isOverBudget = viewType === 'expense' && predictedTotal > currentBudget;
 
-        // Categories
+        // Categories & Category Budgets
         const categoryList = viewType === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
         let categoryData = categoryList.map(cat => {
             const amount = activeTransactions.filter(t => t.category === cat.name).reduce((a, b) => a + b.amount, 0);
-            return { ...cat, amount, code: cat.code || '#cbd5e1' };
-        }).filter(c => c.amount > 0).sort((a,b) => b.amount - a.amount);
+            const catBudget = budgets[currentBudgetKey + '-category-' + cat.name] || 0;
+            return { 
+                ...cat, 
+                amount, 
+                budget: catBudget,
+                code: cat.code || '#cbd5e1' 
+            };
+        }).filter(c => c.amount > 0 || c.budget > 0).sort((a,b) => b.amount - a.amount);
         
         const maxCategoryVal = Math.max(...categoryData.map(c => c.amount), 1); 
         const totalForDonut = categoryData.reduce((a, b) => a + b.amount, 0);
+
+        // --- 6-MONTH CASH FLOW ---
+        const cashFlow = [];
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+            const mKey = d.toLocaleString('default', { month: 'short' });
+            
+            const monthTxs = transactions.filter(t => {
+                const tDate = new Date(t.date);
+                return tDate.getMonth() === d.getMonth() && tDate.getFullYear() === d.getFullYear();
+            });
+
+            const income = monthTxs.filter(t => t.type === 'income').reduce((a, b) => a + b.amount, 0);
+            const expense = monthTxs.filter(t => t.type === 'expense').reduce((a, b) => a + b.amount, 0);
+            
+            cashFlow.push({ month: mKey, income, expense });
+        }
 
         // Send back results
         self.postMessage({
@@ -81,7 +103,8 @@ self.onmessage = function(e) {
             totalForDonut,
             currentBudget,
             daysInMonth,
-            runningTotal
+            runningTotal,
+            cashFlow
         });
 
     } catch (e) {

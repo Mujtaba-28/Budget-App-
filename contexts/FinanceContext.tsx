@@ -1,8 +1,8 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Transaction, BudgetMap, Subscription, Goal, Debt, BackupData } from '../types';
 import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS, INITIAL_SUBSCRIPTIONS, INITIAL_GOALS, INITIAL_DEBTS } from '../constants';
 import { saveAttachment, deleteAttachment, clearDB, getAllAttachments, restoreAttachments } from '../utils/db';
+import { calculateNextDate } from '../utils';
 
 interface FinanceContextType {
   // State
@@ -23,7 +23,7 @@ interface FinanceContextType {
   deleteTransaction: (id: number) => Promise<void>;
   importTransactions: (txs: Transaction[]) => void;
   
-  updateBudget: (amount: number, monthKey: string) => void;
+  updateBudget: (amount: number, monthKey: string, category?: string) => void;
   
   addSubscription: (sub: Subscription) => void;
   updateSubscription: (sub: Subscription) => void;
@@ -66,6 +66,48 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [subscriptions, setSubscriptions] = useState<Subscription[]>(INITIAL_SUBSCRIPTIONS);
   const [goals, setGoals] = useState<Goal[]>(INITIAL_GOALS);
   const [debts, setDebts] = useState<Debt[]>(INITIAL_DEBTS);
+
+  // --- AUTO PAY LOGIC ---
+  useEffect(() => {
+      if (isInitialized && subscriptions.length > 0) {
+          const today = new Date();
+          today.setHours(0,0,0,0);
+          
+          let subUpdates: Subscription[] = [];
+          let newTxs: Transaction[] = [];
+
+          subscriptions.forEach(sub => {
+              if (sub.autoPay) {
+                  const dueDate = new Date(sub.nextBillingDate);
+                  dueDate.setHours(0,0,0,0);
+                  
+                  if (dueDate <= today) {
+                      // It's due or overdue, pay it automatically
+                      newTxs.push({
+                          id: Date.now() + Math.random(),
+                          title: sub.name,
+                          amount: sub.amount,
+                          category: sub.category || 'Bills',
+                          date: new Date().toISOString(),
+                          type: 'expense'
+                      });
+                      
+                      const nextDate = calculateNextDate(sub.nextBillingDate, sub.billingCycle);
+                      subUpdates.push({ ...sub, nextBillingDate: nextDate });
+                  }
+              }
+          });
+
+          if (newTxs.length > 0) {
+              setTransactions(prev => [...newTxs, ...prev]);
+              setSubscriptions(prev => prev.map(s => {
+                  const updated = subUpdates.find(u => u.id === s.id);
+                  return updated || s;
+              }));
+              console.log(`Auto-Paid ${newTxs.length} subscriptions`);
+          }
+      }
+  }, [isInitialized]); // Run once after init
 
   // --- LOAD DATA EFFECT ---
   useEffect(() => {
@@ -175,8 +217,13 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       setTransactions(prev => [...txs, ...prev]);
   };
 
-  const updateBudget = (amount: number, monthKey: string) => {
-      setBudgets(prev => ({ ...prev, [monthKey]: amount }));
+  const updateBudget = (amount: number, monthKey: string, category?: string) => {
+      if (category) {
+          // Store category specific budget like: '2025-11-category-Food'
+          setBudgets(prev => ({ ...prev, [`${monthKey}-category-${category}`]: amount }));
+      } else {
+          setBudgets(prev => ({ ...prev, [monthKey]: amount }));
+      }
   };
 
   const addSubscription = (sub: Subscription) => setSubscriptions(prev => [...prev, sub]);

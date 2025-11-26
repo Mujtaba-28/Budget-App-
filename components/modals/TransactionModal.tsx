@@ -29,6 +29,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ onClose, onS
     const [textInput, setTextInput] = useState('');
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     
+    // Graceful Degradation: Check for API Key
+    const hasApiKey = !!process.env.API_KEY;
+    
     const fileInputRef = useRef<HTMLInputElement>(null);
     const attachmentInputRef = useRef<HTMLInputElement>(null);
     
@@ -97,7 +100,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ onClose, onS
                     </button>
                     <span className="font-bold text-emerald-950 dark:text-emerald-50">{isEditing ? 'Edit Transaction' : 'New Transaction'}</span>
                     <div className="flex gap-2 items-center">
-                        {!isEditing && (
+                        {!isEditing && hasApiKey && (
                             <>
                              <button onClick={() => fileInputRef.current?.click()} aria-label="Scan" type="button" className="p-2 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 transition-colors">
                                 <Camera size={20}/>

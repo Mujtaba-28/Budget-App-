@@ -43,7 +43,7 @@ export const CurrencyInput: React.FC<CurrencyInputProps> = ({
                         <X size={20} className="text-slate-400 hover:text-rose-500"/>
                     </button>
                 </div>
-                <div className="grid grid-cols-2 gap-3 overflow-y-auto">
+                <div className="grid grid-cols-2 gap-3 overflow-y-auto scrollbar-hide">
                     {currencies.map(c => (
                         <button 
                             key={c.code} 
@@ -69,11 +69,11 @@ export const CurrencyInput: React.FC<CurrencyInputProps> = ({
             {isBase ? (
                 <div className="flex flex-col items-center justify-center py-6 bg-emerald-50 dark:bg-emerald-900/20 rounded-[2.5rem] border border-emerald-100 dark:border-emerald-800/20 transition-all hover:border-emerald-200 dark:hover:border-emerald-700/30">
                     <p className="text-[10px] font-extrabold text-emerald-900/40 dark:text-emerald-100/40 uppercase tracking-widest mb-2">Amount</p>
-                    <div className="flex items-center justify-center text-emerald-950 dark:text-emerald-50 w-full px-4 gap-3">
+                    <div className="flex items-center justify-center text-emerald-950 dark:text-emerald-50 w-full px-4 gap-2 sm:gap-3">
                         <button 
                             type="button"
                             onClick={() => setIsSelectionMode(true)}
-                            className="flex items-center gap-2 bg-white dark:bg-black/20 pl-3 pr-2 py-2 rounded-2xl border border-emerald-100 dark:border-emerald-800/30 text-emerald-950 dark:text-emerald-50 font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all active:scale-95 group shadow-sm"
+                            className="flex items-center gap-2 bg-white dark:bg-black/20 pl-3 pr-2 py-2 rounded-2xl border border-emerald-100 dark:border-emerald-800/30 text-emerald-950 dark:text-emerald-50 font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all active:scale-95 group shadow-sm shrink-0"
                         >
                             <span className="text-lg leading-none">{currentFlag}</span>
                             <span className="text-lg">{selectedCurrency}</span>
@@ -85,7 +85,6 @@ export const CurrencyInput: React.FC<CurrencyInputProps> = ({
                             onChange={(e) => setAmount(e.target.value)} 
                             placeholder="0" 
                             className="bg-transparent text-4xl sm:text-5xl font-bold text-center w-full outline-none placeholder:text-emerald-900/10 dark:placeholder:text-emerald-100/10 min-w-0" 
-                            style={{ maxWidth: '200px' }} 
                         />
                     </div>
                 </div>
@@ -102,7 +101,7 @@ export const CurrencyInput: React.FC<CurrencyInputProps> = ({
                         <button 
                             type="button"
                             onClick={() => setIsSelectionMode(true)}
-                            className="flex items-center gap-2 bg-white dark:bg-black/20 pl-3 pr-2 py-2 rounded-2xl border border-indigo-100 dark:border-indigo-800/30 text-indigo-950 dark:text-indigo-50 font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all active:scale-95 group shadow-sm shrink-0"
+                            className="flex items-center gap-1 sm:gap-2 bg-white dark:bg-black/20 pl-2 pr-2 py-2 sm:pl-3 sm:pr-2 rounded-2xl border border-indigo-100 dark:border-indigo-800/30 text-indigo-950 dark:text-indigo-50 font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all active:scale-95 group shadow-sm shrink-0"
                         >
                             <span className="text-lg leading-none">{currentFlag}</span>
                             <span className="text-lg">{selectedCurrency}</span>
@@ -113,7 +112,7 @@ export const CurrencyInput: React.FC<CurrencyInputProps> = ({
                             value={originalAmount} 
                             onChange={(e) => setOriginalAmount(e.target.value)} 
                             placeholder="Foreign Amount" 
-                            className="flex-1 min-w-0 bg-transparent text-2xl sm:text-3xl font-bold text-indigo-900 dark:text-indigo-100 outline-none placeholder:text-indigo-900/20 dark:placeholder:text-indigo-100/20"
+                            className="flex-1 min-w-0 bg-transparent text-xl sm:text-3xl font-bold text-indigo-900 dark:text-indigo-100 outline-none placeholder:text-indigo-900/20 dark:placeholder:text-indigo-100/20"
                         />
                     </div>
 
