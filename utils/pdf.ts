@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import { Transaction, BudgetMap } from '../types';
-import { formatMoney } from '../utils';
+import { formatMoney } from './index';
 
 export const generateMonthlyReport = (
     transactions: Transaction[], 
