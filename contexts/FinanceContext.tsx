@@ -192,14 +192,31 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const deleteDebt = (id: string) => setDebts(prev => prev.filter(d => d.id !== id));
 
   const resetData = async () => {
-      setIsInitialized(false);
+      // 1. Clear Storage
       localStorage.clear();
       try {
           await withTimeout(clearDB(), 1000);
       } catch (e) {
-          console.error("Failed to clear IndexedDB (timeout/error)", e);
+          console.error("Failed to clear IndexedDB", e);
       }
-      window.location.reload();
+
+      // 2. Soft Reset State (No Reload)
+      setTransactions([]);
+      setBudgets({});
+      setSubscriptions([]);
+      setGoals([]);
+      setDebts([]);
+      setUserName('User');
+      setLastBackupDate(null);
+      setDataError(false);
+      
+      // 3. Trigger Onboarding Flow
+      setIsOnboarded(false);
+      
+      // 4. Reset Hash
+      if (typeof window !== 'undefined') {
+          window.location.hash = '';
+      }
   };
 
   const createBackup = async () => {

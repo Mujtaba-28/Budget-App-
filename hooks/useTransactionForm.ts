@@ -93,7 +93,7 @@ export const useTransactionForm = (
                 setOriginalAmount('');
             }
         }
-    }, [selectedCurrency]);
+    }, [selectedCurrency, originalAmount]);
 
     // --- ACTIONS ---
 

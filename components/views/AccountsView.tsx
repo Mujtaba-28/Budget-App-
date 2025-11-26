@@ -6,6 +6,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { parseCSV, triggerHaptic, formatDate } from '../../utils';
 import { generateMonthlyReport } from '../../utils/pdf';
 import { Transaction } from '../../types';
+import { ConfirmationModal } from '../modals/ConfirmationModal';
 
 interface AccountsViewProps {
   onOpenSettings: () => void;
@@ -21,6 +22,9 @@ export const AccountsView: React.FC<AccountsViewProps> = ({ onOpenSettings }) =>
     const [isEditing, setIsEditing] = useState(false);
     const [tempName, setTempName] = useState(userName);
     const [avatarSeed, setAvatarSeed] = useState(userName);
+    
+    // Confirmation State
+    const [showResetConfirm, setShowResetConfirm] = useState(false);
 
     const handleSaveProfile = () => {
         if (tempName.trim()) {
@@ -74,14 +78,27 @@ export const AccountsView: React.FC<AccountsViewProps> = ({ onOpenSettings }) =>
     };
 
     const handleResetApp = () => {
-        if (window.confirm("ARE YOU SURE? This will permanently delete ALL transactions, goals, and settings. This cannot be undone.")) {
-            triggerHaptic(50);
-            resetData();
-        }
+        triggerHaptic(10);
+        setShowResetConfirm(true);
+    };
+
+    const confirmReset = () => {
+        triggerHaptic(50);
+        resetData();
+        setShowResetConfirm(false);
     };
 
     return (
         <div className="animate-in fade-in duration-500 space-y-6 max-w-md mx-auto pb-10">
+            <ConfirmationModal 
+                isOpen={showResetConfirm}
+                title="Reset Application?"
+                message="This will permanently delete ALL transactions, goals, debts, and settings. This cannot be undone."
+                onConfirm={confirmReset}
+                onCancel={() => setShowResetConfirm(false)}
+                confirmText="Reset Everything"
+            />
+
             <h2 className="text-2xl font-bold text-emerald-950 dark:text-emerald-50">Profile</h2>
             
             {/* Identity Card */}
