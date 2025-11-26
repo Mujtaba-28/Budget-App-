@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo } from 'react';
 import { Filter, ArrowUp, ArrowDown, Search } from 'lucide-react';
 import { Transaction } from '../../types';
@@ -7,7 +5,10 @@ import { TransactionItem } from '../TransactionItem';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from './constants';
 import { useFinance } from '../../contexts/FinanceContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { FixedSizeList as List } from 'react-window';
+import * as ReactWindow from 'react-window';
+
+// Handle import compatibility for CDN/ESM environments where named exports might be missing
+const List = (ReactWindow as any).FixedSizeList || (ReactWindow as any).default?.FixedSizeList;
 
 interface HistoryViewProps {
   onEditTx: (tx: Transaction) => void;
