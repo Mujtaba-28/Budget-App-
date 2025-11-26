@@ -2,7 +2,7 @@ import {
   TrendingUp, ShoppingBag, Car, Coffee, Zap, Smartphone, Activity, 
   GraduationCap, MapPin, Gift, Briefcase, Plus, HelpCircle
 } from 'lucide-react';
-import { Category, Transaction, Subscription, Goal, Debt } from './types';
+import { Category, Transaction, Subscription, Goal, Debt } from '../../types';
 
 export const EXPENSE_CATEGORIES: Category[] = [
   { id: 'food', name: 'Food', icon: Coffee, color: 'bg-orange-100 text-orange-600', code: '#f97316' },

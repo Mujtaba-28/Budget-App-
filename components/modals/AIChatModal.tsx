@@ -4,7 +4,7 @@ import { GoogleGenAI, FunctionDeclaration, Type } from "@google/genai";
 import { ChatMessage } from '../../types';
 import { useFinance } from '../../contexts/FinanceContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '../../constants';
+import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '../views/constants';
 
 interface AIChatModalProps {
     onClose: () => void;

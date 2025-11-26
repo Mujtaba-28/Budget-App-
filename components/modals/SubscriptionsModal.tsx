@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Plus, Calendar, Trash2, Zap, LayoutGrid, List, Edit2 } from 'lucide-react';
 import { Subscription } from '../../types';
-import { EXPENSE_CATEGORIES } from '../../constants';
+import { EXPENSE_CATEGORIES } from '../views/constants';
 import { formatMoney } from '../../utils';
 import { useFinance } from '../../contexts/FinanceContext';
 import { useTheme } from '../../contexts/ThemeContext';
