@@ -1,13 +1,15 @@
+
 import React, { useState, useEffect } from 'react';
-import { X, Moon, Sun, Lock, Unlock } from 'lucide-react';
+import { X, Moon, Sun, Lock, Unlock, HelpCircle } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useFinance } from '../../contexts/FinanceContext';
 
 interface SettingsModalProps {
   onClose: () => void;
+  onOpenTutorial: () => void;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenTutorial }) => {
     const { isDark, toggleTheme, currency, setCurrency } = useTheme();
     
     // Lock State
@@ -15,7 +17,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     const [mode, setMode] = useState<'view' | 'set' | 'change' | 'remove'>('view');
     const [step, setStep] = useState<'verify' | 'new' | 'confirm'>('new');
     const [inputPin, setInputPin] = useState('');
-
+    
     useEffect(() => {
         const storedPin = localStorage.getItem('emerald_pin');
         setHasPin(!!storedPin);
@@ -92,6 +94,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                     <div className="w-10"></div>
                 </div>
                 <div className="space-y-6">
+                    
+                    {/* Tutorial Button */}
+                    <button 
+                        onClick={onOpenTutorial}
+                        className="w-full p-4 bg-white dark:bg-[#0a3831] rounded-2xl border border-emerald-50 dark:border-emerald-800/30 flex items-center justify-between group active:scale-95 transition-transform"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                                <HelpCircle size={20}/>
+                            </div>
+                            <span className="font-bold text-emerald-950 dark:text-emerald-50">Help & Guide</span>
+                        </div>
+                    </button>
+
                     {/* Dark Mode */}
                     <div className="flex items-center justify-between p-4 bg-white dark:bg-[#0a3831] rounded-2xl border border-emerald-50 dark:border-emerald-800/30">
                         <div className="flex items-center gap-3">

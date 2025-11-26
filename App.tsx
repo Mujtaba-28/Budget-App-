@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Sparkles, AlertOctagon } from 'lucide-react';
 import { Transaction } from './types';
@@ -6,6 +5,7 @@ import { HomeView } from './components/views/HomeView';
 import { StatsView } from './components/views/StatsView';
 import { HistoryView } from './components/views/HistoryView';
 import { AccountsView } from './components/views/AccountsView';
+import { PlanView } from './components/views/PlanView';
 import { Navigation } from './components/Navigation';
 import { BudgetModal } from './components/modals/BudgetModal';
 import { TransactionModal } from './components/modals/TransactionModal';
@@ -14,14 +14,16 @@ import { SubscriptionsModal } from './components/modals/SubscriptionsModal';
 import { GoalsModal } from './components/modals/GoalsModal';
 import { DebtsModal } from './components/modals/DebtsModal';
 import { AIChatModal } from './components/modals/AIChatModal';
+import { TutorialModal } from './components/modals/TutorialModal';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { AppLock } from './components/security/AppLock';
-import { useFinance } from './contexts/FinanceContext';
-import { useTheme } from './contexts/ThemeContext';
+import { useFinance } from '../../contexts/FinanceContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useHashLocation } from './utils/router';
+import { triggerHaptic } from './utils';
 
 export default function App() {
-  const { transactions, addTransaction, updateTransaction, deleteTransaction, budgets, updateBudget, dataError, isOnboarded } = useFinance();
+  const { transactions, addTransaction, updateTransaction, deleteTransaction, budgets, updateBudget, dataError, isOnboarded, userName } = useFinance();
   const { isDark, currency } = useTheme();
   
   // Hash Router
@@ -39,18 +41,25 @@ export default function App() {
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showDebtsModal, setShowDebtsModal] = useState(false);
   const [showAIChat, setShowAIChat] = useState(false);
+  const [showTutorialModal, setShowTutorialModal] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
   // Security State
   const [isLocked, setIsLocked] = useState(false);
   const [savedPin, setSavedPin] = useState<string | null>(null);
 
+  // --- STORAGE HARDENING ---
   useEffect(() => {
-      const pin = localStorage.getItem('emerald_pin');
-      if (pin) {
-          setSavedPin(pin);
-          setIsLocked(true);
-      }
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().then(persistent => {
+        console.log(persistent ? 'Storage is persistent' : 'Storage is not persistent');
+      });
+    }
+    const pin = localStorage.getItem('emerald_pin');
+    if (pin) {
+        setSavedPin(pin);
+        setIsLocked(true);
+    }
   }, []);
 
   // Derived Values for Home View
@@ -72,19 +81,20 @@ export default function App() {
   const handleSaveTransaction = async (txData: Transaction) => {
     if (editingTx) await updateTransaction(txData);
     else await addTransaction(txData);
+    triggerHaptic(20); // Success haptic
     setShowTxModal(false); setEditingTx(null);
   };
 
   const handleDeleteTransaction = (id: number) => {
-    if (window.confirm("Are you sure you want to delete this transaction? This cannot be undone.")) {
-        // Do not await here. Let the context handle it asynchronously/optimistically.
-        deleteTransaction(id);
-        setShowTxModal(false);
-    }
+    // UI Confirmation is handled inside TransactionModal
+    deleteTransaction(id);
+    triggerHaptic(50); // Delete haptic
+    setShowTxModal(false);
   };
 
   const handleUpdateBudget = (newAmount: number, monthKey: string) => {
     updateBudget(newAmount, monthKey);
+    triggerHaptic(20);
     setShowBudgetModal(false);
   };
 
@@ -142,13 +152,19 @@ export default function App() {
         );
       case 'history':
         return <HistoryView onEditTx={(tx) => { setEditingTx(tx); setShowTxModal(true); }} isPrivacyMode={isPrivacyMode} />;
+      case 'plan':
+          return (
+              <PlanView 
+                  onOpenSubscriptions={() => setShowSubsModal(true)}
+                  onOpenGoals={() => setShowGoalsModal(true)}
+                  onOpenDebts={() => setShowDebtsModal(true)}
+                  isPrivacyMode={isPrivacyMode}
+              />
+          );
       case 'accounts':
         return (
             <AccountsView 
                 onOpenSettings={() => setShowSettingsModal(true)} 
-                onOpenSubscriptions={() => setShowSubsModal(true)}
-                onOpenGoals={() => setShowGoalsModal(true)}
-                onOpenDebts={() => setShowDebtsModal(true)}
             />
         );
       default:
@@ -175,11 +191,11 @@ export default function App() {
         <div className="relative pt-12 px-6 flex justify-between items-center z-20 mb-6 shrink-0 max-w-md mx-auto w-full">
             <div className="flex items-center gap-3 cursor-pointer active:scale-95 transition-transform" onClick={() => navigate('accounts')}>
               <div className="w-12 h-12 rounded-full bg-emerald-100 overflow-hidden border border-emerald-200">
-                 <img src="https://api.dicebear.com/9.x/avataaars/svg?seed=Mujtaba" alt="Avatar" className="w-full h-full object-cover" />
+                 <img src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${userName}`} alt="Avatar" className="w-full h-full object-cover" />
               </div>
               <div>
                 <p className="text-xs font-bold text-emerald-600/70 dark:text-emerald-400/70 tracking-wider">Welcome</p>
-                <h2 className="text-xl font-bold text-emerald-950 dark:text-emerald-50">Mujtaba M</h2>
+                <h2 className="text-xl font-bold text-emerald-950 dark:text-emerald-50">{userName}</h2>
               </div>
             </div>
             <div className="flex gap-2">
@@ -206,8 +222,8 @@ export default function App() {
         
         <Navigation 
             activeTab={activeTab} 
-            setActiveTab={navigate} 
-            onAddClick={() => { setEditingTx(null); setShowTxModal(true); }}
+            setActiveTab={(tab) => { triggerHaptic(5); navigate(tab); }} 
+            onAddClick={() => { triggerHaptic(10); setEditingTx(null); setShowTxModal(true); }}
         />
         
         {/* Modals */}
@@ -224,11 +240,17 @@ export default function App() {
             />
         )}
         
-        {showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} />}
+        {showSettingsModal && (
+            <SettingsModal 
+                onClose={() => setShowSettingsModal(false)} 
+                onOpenTutorial={() => { setShowSettingsModal(false); setShowTutorialModal(true); }}
+            />
+        )}
         {showSubsModal && <SubscriptionsModal onClose={() => setShowSubsModal(false)} />}
         {showGoalsModal && <GoalsModal onClose={() => setShowGoalsModal(false)} />}
         {showDebtsModal && <DebtsModal onClose={() => setShowDebtsModal(false)} />}
         {showAIChat && <AIChatModal onClose={() => setShowAIChat(false)} totalBudget={totalBudget} />}
+        {showTutorialModal && <TutorialModal onClose={() => setShowTutorialModal(false)} />}
       </div>
     </div>
   );

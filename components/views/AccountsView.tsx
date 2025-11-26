@@ -1,24 +1,35 @@
 
-import React, { useRef } from 'react';
-import { Upload, Download, Settings, ChevronDown, Repeat, Wallet, Target, TrendingDown, Save, FolderOpen, FileText } from 'lucide-react';
-import { Transaction } from '../../types';
+import React, { useRef, useState } from 'react';
+import { Upload, Download, Settings, ChevronRight, Save, FolderOpen, FileText, Edit2, RefreshCw, Trash2, ShieldCheck, Clock, Check } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { parseCSV } from '../../utils';
+import { parseCSV, triggerHaptic, formatDate } from '../../utils';
 import { generateMonthlyReport } from '../../utils/pdf';
+import { Transaction } from '../../types';
 
 interface AccountsViewProps {
   onOpenSettings: () => void;
-  onOpenSubscriptions: () => void;
-  onOpenGoals: () => void;
-  onOpenDebts: () => void;
 }
 
-export const AccountsView: React.FC<AccountsViewProps> = ({ onOpenSettings, onOpenSubscriptions, onOpenGoals, onOpenDebts }) => {
-    const { transactions, budgets, importTransactions, createBackup, restoreBackup } = useFinance();
+export const AccountsView: React.FC<AccountsViewProps> = ({ onOpenSettings }) => {
+    const { transactions, budgets, importTransactions, createBackup, restoreBackup, userName, setUserName, lastBackupDate, resetData } = useFinance();
     const { currency } = useTheme();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const backupInputRef = useRef<HTMLInputElement>(null);
+
+    // Edit Profile State
+    const [isEditing, setIsEditing] = useState(false);
+    const [tempName, setTempName] = useState(userName);
+    const [avatarSeed, setAvatarSeed] = useState(userName);
+
+    const handleSaveProfile = () => {
+        if (tempName.trim()) {
+            setUserName(tempName);
+            // In a real app we'd save the avatar seed too, but here we derive it from name or temp seed
+            triggerHaptic(20);
+            setIsEditing(false);
+        }
+    };
 
     const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -28,7 +39,6 @@ export const AccountsView: React.FC<AccountsViewProps> = ({ onOpenSettings, onOp
             const text = event.target?.result as string;
             const parsed = parseCSV(text);
             if (parsed.length > 0) {
-                // Merge with existing, assigning new IDs
                 const newTxs = parsed.map((p, idx) => ({
                     id: Date.now() + idx,
                     title: p.title || 'Imported',
@@ -39,6 +49,7 @@ export const AccountsView: React.FC<AccountsViewProps> = ({ onOpenSettings, onOp
                 } as Transaction));
                 importTransactions(newTxs);
                 alert(`Successfully imported ${newTxs.length} transactions.`);
+                triggerHaptic(20);
             } else {
                 alert('Failed to parse CSV. Please ensure it has valid headers.');
             }
@@ -59,108 +70,154 @@ export const AccountsView: React.FC<AccountsViewProps> = ({ onOpenSettings, onOp
 
     const handleGenerateReport = () => {
         generateMonthlyReport(transactions, budgets, new Date(), currency);
+        triggerHaptic(10);
+    };
+
+    const handleResetApp = () => {
+        if (window.confirm("ARE YOU SURE? This will permanently delete ALL transactions, goals, and settings. This cannot be undone.")) {
+            triggerHaptic(50);
+            resetData();
+        }
     };
 
     return (
-        <div className="animate-in fade-in duration-500 space-y-6 max-w-md mx-auto">
-            <h2 className="text-2xl font-bold text-emerald-950 dark:text-emerald-50">Accounts</h2>
-            <div className="bg-white dark:bg-[#0a3831] p-6 rounded-[2.5rem] shadow-sm border border-emerald-100 dark:border-emerald-800/30 flex flex-col items-center text-center relative overflow-hidden">
-                <div className="relative w-24 h-24 mb-4 group">
-                    <img src="https://api.dicebear.com/9.x/avataaars/svg?seed=Mujtaba" alt="Avatar" className="w-full h-full rounded-full bg-emerald-50 object-cover" />
-                    <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm cursor-pointer">
-                        <span className="text-white text-xs font-bold">Edit</span>
+        <div className="animate-in fade-in duration-500 space-y-6 max-w-md mx-auto pb-10">
+            <h2 className="text-2xl font-bold text-emerald-950 dark:text-emerald-50">Profile</h2>
+            
+            {/* Identity Card */}
+            <div className="bg-white dark:bg-[#0a3831] p-6 rounded-[2.5rem] shadow-sm border border-emerald-100 dark:border-emerald-800/30 relative overflow-hidden group">
+                <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-br from-emerald-500 to-teal-600 opacity-10 dark:opacity-20"></div>
+                
+                <div className="relative z-10 flex flex-col items-center text-center">
+                    <div className="relative mb-4">
+                        <div className="w-28 h-28 rounded-full bg-white dark:bg-[#021c17] p-1 shadow-xl">
+                            <img 
+                                src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${isEditing ? avatarSeed : userName}&backgroundColor=b6e3f4`} 
+                                alt="Avatar" 
+                                className="w-full h-full rounded-full object-cover" 
+                            />
+                        </div>
+                        {isEditing && (
+                            <button 
+                                onClick={() => { setAvatarSeed(Math.random().toString(36)); triggerHaptic(5); }}
+                                className="absolute bottom-0 right-0 p-2 bg-indigo-500 text-white rounded-full shadow-lg hover:scale-110 transition-transform"
+                            >
+                                <RefreshCw size={14} />
+                            </button>
+                        )}
                     </div>
-                </div>
-                <h3 className="text-xl font-bold text-emerald-950 dark:text-emerald-50">Mujtaba M</h3>
-                <p className="text-slate-400 text-sm">mujtaba@example.com</p>
-                <div className="mt-4 flex gap-4">
-                    <div className="text-center">
-                        <p className="text-lg font-bold text-emerald-900 dark:text-emerald-100">{transactions.length}</p>
-                        <p className="text-[10px] uppercase text-slate-400 font-bold">Entries</p>
+
+                    {isEditing ? (
+                        <div className="flex items-center gap-2 mb-2 animate-in zoom-in">
+                            <input 
+                                value={tempName}
+                                onChange={(e) => setTempName(e.target.value)}
+                                className="bg-slate-100 dark:bg-black/30 px-3 py-1 rounded-xl font-bold text-center text-lg outline-none border-2 border-emerald-500 w-40"
+                                autoFocus
+                            />
+                            <button onClick={handleSaveProfile} className="p-2 bg-emerald-500 text-white rounded-full">
+                                <Check size={16} strokeWidth={3} />
+                            </button>
+                        </div>
+                    ) : (
+                        <h3 className="text-2xl font-black text-emerald-950 dark:text-emerald-50 mb-1 flex items-center gap-2">
+                            {userName}
+                            <button onClick={() => { setTempName(userName); setAvatarSeed(userName); setIsEditing(true); triggerHaptic(5); }} className="opacity-30 hover:opacity-100 transition-opacity">
+                                <Edit2 size={16} />
+                            </button>
+                        </h3>
+                    )}
+                    
+                    <p className="text-slate-400 text-sm font-medium mb-6">{userName.toLowerCase().replace(/\s/g, '')}@emerald.app</p>
+
+                    <div className="grid grid-cols-2 gap-4 w-full">
+                        <div className="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-2xl flex flex-col items-center">
+                            <span className="text-xl font-black text-emerald-700 dark:text-emerald-400">{transactions.length}</span>
+                            <span className="text-[10px] uppercase font-bold text-emerald-900/40 dark:text-emerald-100/40 tracking-wider">Entries</span>
+                        </div>
+                        <div className="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-2xl flex flex-col items-center">
+                            <span className="text-xl font-black text-emerald-700 dark:text-emerald-400">
+                                {new Date().toLocaleDateString(undefined, {month:'short', year:'2-digit'})}
+                            </span>
+                            <span className="text-[10px] uppercase font-bold text-emerald-900/40 dark:text-emerald-100/40 tracking-wider">Joined</span>
+                        </div>
                     </div>
                 </div>
             </div>
             
-            <h3 className="font-bold text-lg text-emerald-950 dark:text-emerald-50 px-2">Data & Planning</h3>
-
-            <div className="grid grid-cols-2 gap-4">
-                <button onClick={onOpenGoals} aria-label="Savings Goals" className="col-span-2 p-4 bg-indigo-500 text-white rounded-2xl shadow-lg shadow-indigo-500/20 flex items-center justify-between active:scale-95 transition-transform">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white/20 rounded-xl"><Target size={20}/></div>
-                        <div className="text-left">
-                            <span className="block text-sm font-bold">Savings Goals</span>
-                            <span className="block text-[10px] opacity-80">Track your dreams</span>
-                        </div>
+            {/* Settings Trigger */}
+            <button 
+                onClick={() => { onOpenSettings(); triggerHaptic(10); }}
+                className="w-full p-4 bg-white dark:bg-[#0a3831] rounded-2xl border border-emerald-100 dark:border-emerald-800/30 flex items-center justify-between active:scale-[0.98] transition-all hover:shadow-md group"
+            >
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                        <Settings size={20} />
                     </div>
-                    <ChevronDown className="-rotate-90 opacity-60" size={20} />
-                </button>
-
-                <button onClick={onOpenDebts} aria-label="Debt Planner" className="col-span-2 p-4 bg-rose-500 text-white rounded-2xl shadow-lg shadow-rose-500/20 flex items-center justify-between active:scale-95 transition-transform">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white/20 rounded-xl"><TrendingDown size={20}/></div>
-                        <div className="text-left">
-                            <span className="block text-sm font-bold">Debt Planner</span>
-                            <span className="block text-[10px] opacity-80">Snowball / Avalanche</span>
-                        </div>
+                    <div className="text-left">
+                        <h4 className="font-bold text-emerald-950 dark:text-emerald-50">Preferences</h4>
+                        <p className="text-xs text-slate-400">Theme, Currency, Security</p>
                     </div>
-                    <ChevronDown className="-rotate-90 opacity-60" size={20} />
-                </button>
-
-                <button onClick={onOpenSubscriptions} aria-label="Manage Subscriptions" className="col-span-2 p-4 bg-emerald-600 text-white rounded-2xl shadow-lg shadow-emerald-600/20 flex items-center justify-between active:scale-95 transition-transform">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white/20 rounded-xl"><Repeat size={20}/></div>
-                        <div className="text-left">
-                            <span className="block text-sm font-bold">Subscriptions</span>
-                            <span className="block text-[10px] opacity-80">Manage recurring bills</span>
-                        </div>
-                    </div>
-                    <ChevronDown className="-rotate-90 opacity-60" size={20} />
-                </button>
-
-                {/* BACKUP & RESTORE SECTION */}
-                <div className="col-span-2 grid grid-cols-2 gap-4 pt-2 border-t border-emerald-100 dark:border-emerald-800/30">
-                    <button onClick={createBackup} aria-label="Full Backup" className="p-4 bg-white dark:bg-[#0a3831] rounded-2xl border border-emerald-100 dark:border-emerald-800/30 flex flex-col items-center gap-2 active:scale-95 transition-transform hover:bg-emerald-50 dark:hover:bg-emerald-900/20">
-                        <div className="p-2 bg-teal-50 text-teal-600 rounded-xl"><Save size={20}/></div>
-                        <span className="text-xs font-bold text-emerald-900 dark:text-emerald-100">Full Backup</span>
-                    </button>
-
-                    <button onClick={() => backupInputRef.current?.click()} aria-label="Restore Backup" className="p-4 bg-white dark:bg-[#0a3831] rounded-2xl border border-emerald-100 dark:border-emerald-800/30 flex flex-col items-center gap-2 active:scale-95 transition-transform hover:bg-emerald-50 dark:hover:bg-emerald-900/20">
-                        <div className="p-2 bg-blue-50 text-blue-600 rounded-xl"><FolderOpen size={20}/></div>
-                        <span className="text-xs font-bold text-emerald-900 dark:text-emerald-100">Restore</span>
-                        <input type="file" ref={backupInputRef} onChange={handleRestoreBackup} accept=".json" className="hidden" />
-                    </button>
                 </div>
+                <ChevronRight size={20} className="text-slate-300 group-hover:text-emerald-500 transition-colors" />
+            </button>
+
+            {/* Data Management Grid */}
+            <div className="space-y-3">
+                <h3 className="font-bold text-sm text-emerald-900/50 dark:text-emerald-100/50 uppercase tracking-widest px-2">Data Control</h3>
                 
-                {/* PDF REPORT */}
-                <button onClick={handleGenerateReport} aria-label="Export PDF" className="col-span-2 p-4 bg-white dark:bg-[#0a3831] rounded-2xl border border-emerald-100 dark:border-emerald-800/30 flex items-center justify-center gap-2 active:scale-95 transition-transform hover:bg-emerald-50 dark:hover:bg-emerald-900/20">
-                    <FileText size={20} className="text-rose-500"/>
-                    <span className="text-sm font-bold text-emerald-900 dark:text-emerald-100">Download Monthly Report (PDF)</span>
-                </button>
+                <div className="bg-white dark:bg-[#0a3831] p-2 rounded-3xl border border-emerald-100 dark:border-emerald-800/30">
+                    {/* Backup Status */}
+                    <div className="flex items-center gap-2 px-4 py-3 mb-2 border-b border-slate-50 dark:border-emerald-900/20">
+                        {lastBackupDate ? <ShieldCheck size={14} className="text-emerald-500"/> : <Clock size={14} className="text-amber-500"/>}
+                        <span className="text-xs font-bold text-slate-400">
+                            Last Backup: {lastBackupDate ? formatDate(lastBackupDate) : 'Never'}
+                        </span>
+                    </div>
 
-                {/* LEGACY CSV EXPORT/IMPORT */}
-                <button onClick={() => {}} aria-label="Export CSV" className="p-4 bg-white dark:bg-[#0a3831] rounded-2xl border border-emerald-100 dark:border-emerald-800/30 flex flex-col items-center gap-2 active:scale-95 transition-transform hover:bg-emerald-50 dark:hover:bg-emerald-900/20">
-                    <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl"><Upload size={20}/></div>
-                    <span className="text-xs font-bold text-emerald-900 dark:text-emerald-100">Export CSV</span>
-                </button>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button onClick={() => { createBackup(); triggerHaptic(20); }} className="p-4 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded-2xl flex flex-col items-center gap-2 transition-colors">
+                            <Save size={24} className="text-emerald-600 dark:text-emerald-400"/>
+                            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-100">Backup</span>
+                        </button>
+                        
+                        <button onClick={() => { backupInputRef.current?.click(); triggerHaptic(10); }} className="p-4 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-2xl flex flex-col items-center gap-2 transition-colors">
+                            <FolderOpen size={24} className="text-blue-600 dark:text-blue-400"/>
+                            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-100">Restore</span>
+                            <input type="file" ref={backupInputRef} onChange={handleRestoreBackup} accept=".json" className="hidden" />
+                        </button>
 
-                <button onClick={() => fileInputRef.current?.click()} aria-label="Import CSV" className="p-4 bg-white dark:bg-[#0a3831] rounded-2xl border border-emerald-100 dark:border-emerald-800/30 flex flex-col items-center gap-2 active:scale-95 transition-transform hover:bg-emerald-50 dark:hover:bg-emerald-900/20">
-                    <div className="p-2 bg-orange-50 text-orange-600 rounded-xl"><Download size={20}/></div>
-                    <span className="text-xs font-bold text-emerald-900 dark:text-emerald-100">Import CSV</span>
-                    <input type="file" ref={fileInputRef} onChange={handleImportData} accept=".csv" className="hidden" />
-                </button>
+                         <button onClick={() => { handleGenerateReport(); }} className="p-4 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded-2xl flex flex-col items-center gap-2 transition-colors">
+                            <FileText size={24} className="text-indigo-600 dark:text-indigo-400"/>
+                            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-100">PDF Report</span>
+                        </button>
+
+                        <div className="flex flex-col gap-2">
+                             <button onClick={() => { triggerHaptic(10); }} className="flex-1 bg-slate-50 dark:bg-slate-800/50 rounded-xl flex items-center justify-center gap-2">
+                                <Upload size={14} className="text-slate-400"/>
+                                <span className="text-[10px] font-bold text-slate-500">Export CSV</span>
+                             </button>
+                             <button onClick={() => { fileInputRef.current?.click(); triggerHaptic(10); }} className="flex-1 bg-slate-50 dark:bg-slate-800/50 rounded-xl flex items-center justify-center gap-2 relative">
+                                <Download size={14} className="text-slate-400"/>
+                                <span className="text-[10px] font-bold text-slate-500">Import CSV</span>
+                                <input type="file" ref={fileInputRef} onChange={handleImportData} accept=".csv" className="absolute inset-0 opacity-0" />
+                             </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div className="space-y-3">
-                <button onClick={onOpenSettings} aria-label="Open Settings" className="w-full p-4 bg-white dark:bg-[#0a3831] rounded-2xl border border-emerald-100 dark:border-emerald-800/30 flex items-center justify-between active:scale-98 transition-transform hover:bg-emerald-50 dark:hover:bg-emerald-900/20 group">
-                    <div className="flex items-center gap-3">
-                        {/* Enhanced Contrast for Dark Mode */}
-                        <div className="p-2 rounded-xl bg-slate-100 text-slate-600 dark:bg-emerald-600 dark:text-emerald-50 group-hover:scale-110 transition-transform shadow-sm">
-                            <Settings size={20} />
-                        </div>
-                        <span className="font-bold text-emerald-900 dark:text-emerald-100">Settings</span>
-                    </div>
-                    <ChevronDown className="-rotate-90 text-slate-300" size={20} />
+            {/* Danger Zone */}
+            <div className="pt-4">
+                <button 
+                    onClick={handleResetApp}
+                    className="w-full py-4 border-2 border-dashed border-rose-200 dark:border-rose-900/50 rounded-2xl text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-600 hover:border-rose-300 transition-all font-bold text-xs flex items-center justify-center gap-2"
+                >
+                    <Trash2 size={16}/> Reset Application Data
                 </button>
+                <p className="text-center text-[10px] text-slate-300 dark:text-slate-600 mt-4 font-bold uppercase tracking-widest">
+                    Emerald Finance v1.2.0 • Local Storage Only
+                </p>
             </div>
         </div>
     )

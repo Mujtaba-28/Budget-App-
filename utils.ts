@@ -32,6 +32,26 @@ export const getMonthKey = (date: Date) => {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 };
 
+export const triggerHaptic = (pattern: number | number[] = 10) => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(pattern);
+    }
+};
+
+export const calculateNextDate = (currentDate: string, cycle: string): string => {
+    const date = new Date(currentDate);
+    switch(cycle) {
+        case 'daily': date.setDate(date.getDate() + 1); break;
+        case 'weekly': date.setDate(date.getDate() + 7); break;
+        case 'monthly': date.setMonth(date.getMonth() + 1); break;
+        case 'quarterly': date.setMonth(date.getMonth() + 3); break;
+        case 'half-yearly': date.setMonth(date.getMonth() + 6); break;
+        case 'yearly': date.setFullYear(date.getFullYear() + 1); break;
+        default: date.setMonth(date.getMonth() + 1); break;
+    }
+    return date.toISOString();
+};
+
 export const compressImage = async (file: File): Promise<string> => {
     return new Promise((resolve) => {
         const reader = new FileReader();

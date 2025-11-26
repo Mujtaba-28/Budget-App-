@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { X, Plus, Target, Trash2, Shield, Plane, Laptop, Home, Gift, Car, GraduationCap, Heart, Coins, ChevronRight, Edit2, Save } from 'lucide-react';
 import { Goal } from '../../types';
-import { formatMoney } from '../../utils';
+import { formatMoney, triggerHaptic } from '../../utils';
 import { useFinance } from '../../contexts/FinanceContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface GoalsModalProps {
     onClose: () => void;
@@ -15,6 +16,7 @@ export const GoalsModal: React.FC<GoalsModalProps> = ({ onClose }) => {
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [newGoal, setNewGoal] = useState<Partial<Goal>>({ name: '', targetAmount: 0, currentAmount: 0, color: 'bg-emerald-500', icon: 'shield' });
+    const [deleteId, setDeleteId] = useState<string | null>(null);
     
     // State to handle custom amount input per goal
     const [activeGoalInput, setActiveGoalInput] = useState<string | null>(null);
@@ -42,6 +44,7 @@ export const GoalsModal: React.FC<GoalsModalProps> = ({ onClose }) => {
         setNewGoal({ ...goal });
         setEditingId(goal.id);
         setIsAdding(true);
+        setDeleteId(null);
     };
 
     const handleSave = () => {
@@ -59,6 +62,7 @@ export const GoalsModal: React.FC<GoalsModalProps> = ({ onClose }) => {
         if (editingId) updateGoal(goalData);
         else addGoal(goalData);
         
+        triggerHaptic(20);
         // Reset
         setIsAdding(false);
         setEditingId(null);
@@ -66,20 +70,30 @@ export const GoalsModal: React.FC<GoalsModalProps> = ({ onClose }) => {
     };
 
     const handleDelete = (id: string) => {
-        if (window.confirm("Delete this savings goal?")) {
-            deleteGoal(id);
-        }
+        deleteGoal(id);
+        triggerHaptic(50);
+        setDeleteId(null);
     };
 
     const handleUpdateProgress = (goal: Goal, amount: number) => {
         updateGoal({ ...goal, currentAmount: Math.max(0, goal.currentAmount + amount) });
+        triggerHaptic(10);
         setActiveGoalInput(null);
         setCustomAmount('');
     };
 
     return (
         <div className="absolute inset-0 z-[100] flex items-end sm:items-center justify-center bg-emerald-950/20 backdrop-blur-sm p-4">
-            <div className="w-full max-w-md bg-[#f0fdf4] dark:bg-[#062c26] rounded-[2.5rem] p-6 shadow-2xl border border-white/20 animate-in slide-in-from-bottom-10 duration-300 max-h-[90vh] flex flex-col">
+            <div className="w-full max-w-md bg-[#f0fdf4] dark:bg-[#062c26] rounded-[2.5rem] p-6 shadow-2xl border border-white/20 animate-in slide-in-from-bottom-10 duration-300 max-h-[90vh] flex flex-col relative overflow-hidden">
+                
+                <ConfirmationModal 
+                    isOpen={!!deleteId}
+                    title="Delete Goal?"
+                    message="Are you sure you want to remove this savings goal? Your progress will be lost."
+                    onConfirm={() => deleteId && handleDelete(deleteId)}
+                    onCancel={() => setDeleteId(null)}
+                />
+
                 <div className="flex justify-between items-center mb-6 shrink-0">
                     <button onClick={onClose} aria-label="Close" className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                         <X size={24} className="opacity-60 text-emerald-900 dark:text-emerald-100" />
@@ -90,6 +104,7 @@ export const GoalsModal: React.FC<GoalsModalProps> = ({ onClose }) => {
                             setIsAdding(!isAdding);
                             setEditingId(null);
                             setNewGoal({ name: '', targetAmount: 0, currentAmount: 0, color: 'bg-emerald-500', icon: 'shield' });
+                            setDeleteId(null);
                         }} 
                         aria-label="Add Goal" 
                         className="p-2 rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-100 transition-colors"
@@ -207,9 +222,9 @@ export const GoalsModal: React.FC<GoalsModalProps> = ({ onClose }) => {
                                             <p className="text-xs font-bold text-slate-400">Target: {formatMoney(goal.targetAmount, currency, false)}</p>
                                         </div>
                                     </div>
-                                    <div className="flex gap-1">
+                                    <div className="flex gap-1 items-center">
                                         <button onClick={() => handleEdit(goal)} className="w-8 h-8 flex items-center justify-center rounded-full text-slate-300 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"><Edit2 size={16}/></button>
-                                        <button onClick={() => handleDelete(goal.id)} className="w-8 h-8 flex items-center justify-center rounded-full text-slate-300 hover:bg-rose-50 hover:text-rose-500 transition-colors"><Trash2 size={16}/></button>
+                                        <button onClick={() => setDeleteId(goal.id)} className="w-8 h-8 flex items-center justify-center rounded-full text-slate-300 hover:bg-rose-50 hover:text-rose-500 transition-colors"><Trash2 size={16}/></button>
                                     </div>
                                 </div>
                                 

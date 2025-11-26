@@ -4,6 +4,7 @@ import { Transaction } from '../../types';
 import { useFinance } from '../../contexts/FinanceContext';
 import { useTransactionForm } from '../../hooks/useTransactionForm';
 import { CurrencyInput } from '../forms/CurrencyInput';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface TransactionModalProps {
   onClose: () => void;
@@ -26,6 +27,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ onClose, onS
 
     const [showAiInput, setShowAiInput] = useState(false);
     const [textInput, setTextInput] = useState('');
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    
     const fileInputRef = useRef<HTMLInputElement>(null);
     const attachmentInputRef = useRef<HTMLInputElement>(null);
     
@@ -69,7 +72,18 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ onClose, onS
 
     return (
         <div className="absolute inset-0 z-[100] flex items-end sm:items-center justify-center bg-emerald-950/20 backdrop-blur-sm p-4">
-            <div className="w-full max-w-md bg-[#f0fdf4] dark:bg-[#062c26] rounded-[2.5rem] p-6 shadow-2xl border border-white/20 animate-in slide-in-from-bottom-10 duration-300 max-h-[90vh] flex flex-col">
+            <div className="w-full max-w-md bg-[#f0fdf4] dark:bg-[#062c26] rounded-[2.5rem] p-6 shadow-2xl border border-white/20 animate-in slide-in-from-bottom-10 duration-300 max-h-[90vh] flex flex-col relative overflow-hidden">
+                
+                <ConfirmationModal 
+                    isOpen={showDeleteConfirm}
+                    title="Delete Transaction?"
+                    message="Are you sure you want to remove this transaction? This action cannot be undone."
+                    onConfirm={() => {
+                        if (initialData) onDelete(initialData.id);
+                    }}
+                    onCancel={() => setShowDeleteConfirm(false)}
+                />
+
                 {isAnalyzing && (
                     <div className="absolute inset-0 bg-white/50 dark:bg-black/50 backdrop-blur-sm z-50 flex flex-col items-center justify-center rounded-[2.5rem]">
                         <Loader2 size={40} className="text-emerald-600 animate-spin mb-2" />
@@ -82,7 +96,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ onClose, onS
                         <X size={24} className="text-emerald-900 dark:text-emerald-100" />
                     </button>
                     <span className="font-bold text-emerald-950 dark:text-emerald-50">{isEditing ? 'Edit Transaction' : 'New Transaction'}</span>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
                         {!isEditing && (
                             <>
                              <button onClick={() => fileInputRef.current?.click()} aria-label="Scan" type="button" className="p-2 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 transition-colors">
@@ -93,7 +107,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ onClose, onS
                             </>
                         )}
                         {isEditing && (
-                             <button onClick={() => onDelete(initialData.id)} aria-label="Delete" type="button" className="p-2 rounded-full bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/30 text-rose-600 transition-colors z-10 relative"><Trash2 size={20} /></button>
+                            <button onClick={() => setShowDeleteConfirm(true)} aria-label="Delete" type="button" className="p-2 rounded-full bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/30 text-rose-600 transition-colors z-10 relative">
+                                <Trash2 size={20} />
+                            </button>
                         )}
                     </div>
                 </div>

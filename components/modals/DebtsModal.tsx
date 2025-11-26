@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { X, Plus, Trash2, TrendingDown, Percent, Wallet, ArrowRight, CheckCircle2, Edit2 } from 'lucide-react';
 import { Debt } from '../../types';
-import { calculateDebtPayoff, formatMoney } from '../../utils';
+import { calculateDebtPayoff, formatMoney, triggerHaptic } from '../../utils';
 import { useFinance } from '../../contexts/FinanceContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface DebtsModalProps {
     onClose: () => void;
@@ -14,6 +15,7 @@ export const DebtsModal: React.FC<DebtsModalProps> = ({ onClose }) => {
     const { currency } = useTheme();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [deleteId, setDeleteId] = useState<string | null>(null);
     const [newDebt, setNewDebt] = useState<Partial<Debt>>({ name: '', currentBalance: 0, interestRate: 0, minimumPayment: 0, category: 'Loan' });
     
     // Planner State
@@ -24,6 +26,7 @@ export const DebtsModal: React.FC<DebtsModalProps> = ({ onClose }) => {
         setNewDebt({ ...debt });
         setEditingId(debt.id);
         setIsAdding(true);
+        setDeleteId(null);
     };
 
     const handleSave = () => {
@@ -41,6 +44,7 @@ export const DebtsModal: React.FC<DebtsModalProps> = ({ onClose }) => {
         if (editingId) updateDebt(debtData);
         else addDebt(debtData);
         
+        triggerHaptic(20);
         // Reset
         setIsAdding(false);
         setEditingId(null);
@@ -48,9 +52,9 @@ export const DebtsModal: React.FC<DebtsModalProps> = ({ onClose }) => {
     };
 
     const handleDelete = (id: string) => {
-        if (window.confirm("Are you sure you want to delete this debt?")) {
-            deleteDebt(id);
-        }
+        deleteDebt(id);
+        triggerHaptic(50);
+        setDeleteId(null);
     };
 
     const payoff = calculateDebtPayoff(debts, extraPayment, strategy);
@@ -65,7 +69,16 @@ export const DebtsModal: React.FC<DebtsModalProps> = ({ onClose }) => {
 
     return (
         <div className="absolute inset-0 z-[100] flex items-end sm:items-center justify-center bg-emerald-950/20 backdrop-blur-sm p-4">
-            <div className="w-full max-w-md bg-[#f0fdf4] dark:bg-[#062c26] rounded-[2.5rem] p-6 shadow-2xl border border-white/20 animate-in slide-in-from-bottom-10 duration-300 max-h-[90vh] flex flex-col">
+            <div className="w-full max-w-md bg-[#f0fdf4] dark:bg-[#062c26] rounded-[2.5rem] p-6 shadow-2xl border border-white/20 animate-in slide-in-from-bottom-10 duration-300 max-h-[90vh] flex flex-col relative overflow-hidden">
+                
+                <ConfirmationModal 
+                    isOpen={!!deleteId}
+                    title="Delete Liability?"
+                    message="Are you sure you want to remove this debt from your planner? This will affect your payoff strategy."
+                    onConfirm={() => deleteId && handleDelete(deleteId)}
+                    onCancel={() => setDeleteId(null)}
+                />
+
                 <div className="flex justify-between items-center mb-6 shrink-0">
                     <button onClick={onClose} aria-label="Close" className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                         <X size={24} className="opacity-60 text-emerald-900 dark:text-emerald-100" />
@@ -76,6 +89,7 @@ export const DebtsModal: React.FC<DebtsModalProps> = ({ onClose }) => {
                             setIsAdding(!isAdding);
                             setEditingId(null);
                             setNewDebt({ name: '', currentBalance: 0, interestRate: 0, minimumPayment: 0, category: 'Loan' });
+                            setDeleteId(null);
                         }} 
                         aria-label="Add Debt" 
                         className="p-2 rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-100 transition-colors"
@@ -201,8 +215,9 @@ export const DebtsModal: React.FC<DebtsModalProps> = ({ onClose }) => {
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className="font-bold text-sm text-emerald-900 dark:text-emerald-100 mr-2">{formatMoney(debt.currentBalance, currency, false)}</span>
+                                
                                 <button onClick={() => handleEdit(debt)} className="p-2 rounded-full hover:bg-emerald-50 text-slate-300 hover:text-emerald-500 transition-colors"><Edit2 size={16} /></button>
-                                <button onClick={() => handleDelete(debt.id)} aria-label="Delete" className="p-2 rounded-full hover:bg-rose-50 text-slate-300 hover:text-rose-500 transition-colors">
+                                <button onClick={() => setDeleteId(debt.id)} aria-label="Delete" className="p-2 rounded-full hover:bg-rose-50 text-slate-300 hover:text-rose-500 transition-colors">
                                     <Trash2 size={16} />
                                 </button>
                             </div>

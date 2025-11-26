@@ -6,6 +6,7 @@ import { saveAttachment, deleteAttachment, clearDB, getAllAttachments, restoreAt
 
 interface FinanceContextType {
   // State
+  userName: string;
   transactions: Transaction[];
   budgets: BudgetMap;
   subscriptions: Subscription[];
@@ -13,8 +14,10 @@ interface FinanceContextType {
   debts: Debt[];
   dataError: boolean; // Flag for Safe Mode
   isOnboarded: boolean;
+  lastBackupDate: string | null;
   
   // Actions
+  setUserName: (name: string) => void;
   addTransaction: (tx: Transaction) => Promise<void>;
   updateTransaction: (tx: Transaction) => Promise<void>;
   deleteTransaction: (id: number) => Promise<void>;
@@ -37,7 +40,7 @@ interface FinanceContextType {
   resetData: () => Promise<void>;
   createBackup: () => Promise<void>;
   restoreBackup: (file: File) => Promise<void>;
-  completeOnboarding: (clearData?: boolean, initialBudget?: number) => void;
+  completeOnboarding: (name: string, clearData?: boolean, initialBudget?: number) => void;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -54,6 +57,8 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [dataError, setDataError] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isOnboarded, setIsOnboarded] = useState(false);
+  const [lastBackupDate, setLastBackupDate] = useState<string | null>(null);
+  const [userName, setUserName] = useState('User');
 
   // Initialize with Defaults (Safe, Synchronous)
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
@@ -70,6 +75,12 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
 
             const onboarded = localStorage.getItem('emerald_onboarded');
             if (onboarded) setIsOnboarded(JSON.parse(onboarded));
+
+            const storedName = localStorage.getItem('emerald_user_name');
+            if (storedName) setUserName(storedName);
+
+            const backupDate = localStorage.getItem('emerald_last_backup');
+            if (backupDate) setLastBackupDate(backupDate);
 
             const txRaw = localStorage.getItem('emerald_transactions');
             if (txRaw) setTransactions(JSON.parse(txRaw));
@@ -98,6 +109,8 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   // --- PERSISTENCE EFFECTS ---
   
+  useEffect(() => { if (isInitialized) localStorage.setItem('emerald_user_name', userName); }, [userName, isInitialized]);
+  
   useEffect(() => { 
       if (isInitialized && !dataError) localStorage.setItem('emerald_budgets', JSON.stringify(budgets)); 
   }, [budgets, isInitialized, dataError]);
@@ -119,16 +132,15 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   // --- ACTIONS ---
   
-  const completeOnboarding = (clearData = false, initialBudget = 0) => {
+  const completeOnboarding = (name: string, clearData = false, initialBudget = 0) => {
+      setUserName(name);
       if (clearData) {
           setTransactions([]);
-          // Initialize budget with user's choice instead of empty object
           setBudgets(initialBudget ? { 'default': initialBudget } : {});
           setSubscriptions([]);
           setGoals([]);
           setDebts([]);
       } else if (initialBudget > 0) {
-          // If keeping data, still update the budget
           setBudgets(prev => ({ ...prev, 'default': initialBudget }));
       }
       setIsOnboarded(true);
@@ -151,15 +163,8 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const deleteTransaction = async (id: number) => {
-      // 1. Update UI State IMMEDIATELY (Optimistic Update)
-      // This ensures the transaction disappears from the list instantly
       setTransactions(prev => prev.filter(t => t.id !== id));
-
-      // 2. Attempt background cleanup of attachments
       try {
-        // We don't await this for the UI, but we trigger it.
-        // Using withTimeout just in case we decide to wait in future logic,
-        // but strictly speaking, we can let this run loose or log errors.
         await withTimeout(deleteAttachment(id), 500);
       } catch (e) {
         console.warn("Attachment cleanup background error (non-critical)", e);
@@ -187,19 +192,13 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const deleteDebt = (id: string) => setDebts(prev => prev.filter(d => d.id !== id));
 
   const resetData = async () => {
-      // STOP PERSISTENCE IMMEDIATELY
       setIsInitialized(false);
-      
-      // Clear all storage sync
       localStorage.clear();
-      
-      // Attempt DB clear, but don't block indefinitely
       try {
           await withTimeout(clearDB(), 1000);
       } catch (e) {
           console.error("Failed to clear IndexedDB (timeout/error)", e);
       }
-      
       window.location.reload();
   };
 
@@ -226,6 +225,11 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
           a.href = url;
           a.download = `emerald_backup_${new Date().toISOString().split('T')[0]}.json`;
           a.click();
+
+          const now = new Date().toISOString();
+          setLastBackupDate(now);
+          localStorage.setItem('emerald_last_backup', now);
+
       } catch (e) {
           console.error("Backup failed", e);
           alert("Failed to create backup.");
@@ -247,7 +251,8 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
           localStorage.setItem('emerald_goals', JSON.stringify(data.goals));
           localStorage.setItem('emerald_debts', JSON.stringify(data.debts));
           localStorage.setItem('emerald_onboarded', 'true');
-          
+          localStorage.setItem('emerald_last_backup', new Date().toISOString());
+
           if (data.theme) {
               localStorage.setItem('emerald_theme', JSON.stringify(data.theme.isDark));
               localStorage.setItem('emerald_currency', data.theme.currency);
@@ -269,7 +274,8 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   return (
     <FinanceContext.Provider value={{
-      transactions, budgets, subscriptions, goals, debts, dataError, isOnboarded,
+      userName, setUserName,
+      transactions, budgets, subscriptions, goals, debts, dataError, isOnboarded, lastBackupDate,
       addTransaction, updateTransaction, deleteTransaction, importTransactions,
       updateBudget,
       addSubscription, updateSubscription, deleteSubscription,

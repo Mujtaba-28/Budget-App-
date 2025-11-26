@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, PieChart, History, User, Plus } from 'lucide-react';
+import { Home, PieChart, Compass, User, Plus } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 
 interface NavButtonProps {
@@ -37,8 +37,8 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab,
                 <Plus size={32} strokeWidth={3} />
                 </button>
             </div>
-            <NavButton icon={History} label="History" isActive={activeTab === 'history'} onClick={() => setActiveTab('history')} />
-            <NavButton icon={User} label="Accounts" isActive={activeTab === 'accounts'} onClick={() => setActiveTab('accounts')} />
+            <NavButton icon={Compass} label="Plan" isActive={activeTab === 'plan'} onClick={() => setActiveTab('plan')} />
+            <NavButton icon={User} label="Profile" isActive={activeTab === 'accounts'} onClick={() => setActiveTab('accounts')} />
         </div>
     );
 }

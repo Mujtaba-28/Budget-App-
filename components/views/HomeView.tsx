@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Wallet, Target, ArrowDownLeft, ArrowUpRight, ArrowRight } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Edit2, Wallet, Target, ArrowDownLeft, ArrowUpRight, ArrowRight, ShieldAlert, DownloadCloud, X, Zap, Check } from 'lucide-react';
 import { Transaction } from '../../types';
 import { TransactionItem } from '../TransactionItem';
-import { formatMoney } from '../../utils';
+import { formatMoney, triggerHaptic, calculateNextDate } from '../../utils';
 import { useFinance } from '../../contexts/FinanceContext';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -21,10 +21,67 @@ export const HomeView: React.FC<HomeViewProps> = ({
   currentDate, changeMonth, totalBudget, onEditBudget, onEditTx, 
   onGoToStats, onViewHistory, isPrivacyMode 
 }) => {
-    const { transactions } = useFinance();
+    const { transactions, createBackup, lastBackupDate, subscriptions, addTransaction, updateSubscription } = useFinance();
     const { currency } = useTheme();
     const [filterType, setFilterType] = useState('all');
+    const [showBackupAlert, setShowBackupAlert] = useState(false);
+
+    // Backup Health Check Effect
+    useEffect(() => {
+        // Only annoy users who actually have data to lose (> 5 transactions)
+        if (transactions.length > 5) {
+            if (!lastBackupDate) {
+                setShowBackupAlert(true); // Never backed up
+            } else {
+                const diff = new Date().getTime() - new Date(lastBackupDate).getTime();
+                const daysSince = diff / (1000 * 3600 * 24);
+                if (daysSince > 7) {
+                    setShowBackupAlert(true);
+                }
+            }
+        }
+    }, [transactions.length, lastBackupDate]);
     
+    // Check for Due Subscriptions
+    const dueSubscription = useMemo(() => {
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        
+        // Sort by due date, filter for ones due today/tomorrow or overdue
+        const due = subscriptions.filter(sub => {
+            const nextDate = new Date(sub.nextBillingDate);
+            nextDate.setHours(0,0,0,0);
+            const diffTime = nextDate.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays <= 1; // Due today, tomorrow, or overdue
+        }).sort((a,b) => new Date(a.nextBillingDate).getTime() - new Date(b.nextBillingDate).getTime());
+
+        return due.length > 0 ? due[0] : null;
+    }, [subscriptions]);
+
+    const handlePaySubscription = async () => {
+        if (!dueSubscription) return;
+        
+        // 1. Create Transaction
+        await addTransaction({
+            id: Date.now(),
+            title: dueSubscription.name,
+            amount: dueSubscription.amount,
+            category: dueSubscription.category || 'Bills',
+            date: new Date().toISOString(),
+            type: 'expense'
+        });
+
+        // 2. Update Next Billing Date
+        const newNextDate = calculateNextDate(dueSubscription.nextBillingDate, dueSubscription.billingCycle);
+        updateSubscription({
+            ...dueSubscription,
+            nextBillingDate: newNextDate
+        });
+
+        triggerHaptic(20);
+    };
+
     // Derived Calculations
     const monthlyTransactions = useMemo(() => {
         return transactions.filter(t => {
@@ -42,21 +99,85 @@ export const HomeView: React.FC<HomeViewProps> = ({
       .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 5);
 
-    const handleFilterClick = (type: string) => setFilterType(prev => prev === type ? 'all' : type);
+    const handleFilterClick = (type: string) => {
+        triggerHaptic(5);
+        setFilterType(prev => prev === type ? 'all' : type);
+    };
 
     const currentMonthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
 
     return (
         <div className="space-y-6 max-w-md mx-auto">
             
+            {/* SMART SUBSCRIPTION REMINDER */}
+            {dueSubscription && (
+                <div className="p-4 bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-700/30 rounded-3xl animate-in slide-in-from-top-4 duration-500 shadow-sm relative overflow-hidden">
+                     <div className="absolute top-0 right-0 p-4 opacity-5">
+                        <Zap size={80} className="text-indigo-500" />
+                    </div>
+                    <div className="flex gap-4 relative z-10">
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                            <Zap size={22} fill="currentColor" />
+                        </div>
+                        <div className="flex-1">
+                             <div className="flex justify-between items-start mb-1">
+                                <h3 className="font-bold text-indigo-950 dark:text-indigo-50 text-sm">Upcoming Bill</h3>
+                                <span className="text-[10px] font-bold bg-white/60 dark:bg-black/30 px-2 py-0.5 rounded-lg text-indigo-800 dark:text-indigo-200">
+                                    {new Date(dueSubscription.nextBillingDate).toDateString() === new Date().toDateString() ? 'Due Today' : 'Due Tomorrow'}
+                                </span>
+                            </div>
+                            <p className="text-2xl font-black text-indigo-900 dark:text-indigo-100 mb-3">
+                                {formatMoney(dueSubscription.amount, currency, isPrivacyMode)}
+                                <span className="text-sm font-medium opacity-60 ml-1">for {dueSubscription.name}</span>
+                            </p>
+                            <button 
+                                onClick={handlePaySubscription}
+                                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-colors active:scale-95 shadow-lg shadow-indigo-600/20"
+                            >
+                                <Check size={14} strokeWidth={3} /> Pay Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* SMART BACKUP REMINDER */}
+            {showBackupAlert && !dueSubscription && (
+                <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/30 rounded-3xl animate-in slide-in-from-top-4 duration-500 shadow-sm relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 opacity-5">
+                        <ShieldAlert size={80} className="text-amber-500" />
+                    </div>
+                    <div className="flex gap-4 relative z-10">
+                        <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                            <ShieldAlert size={20} />
+                        </div>
+                        <div className="flex-1">
+                            <div className="flex justify-between items-start">
+                                <h3 className="font-bold text-amber-900 dark:text-amber-100 text-sm mb-1">Data Safety Check</h3>
+                                <button onClick={() => setShowBackupAlert(false)} className="text-amber-400 hover:text-amber-600"><X size={16}/></button>
+                            </div>
+                            <p className="text-xs text-amber-800/70 dark:text-amber-200/60 font-medium mb-3">
+                                You haven't backed up your finance data recently. Create a local backup now to prevent data loss.
+                            </p>
+                            <button 
+                                onClick={() => { createBackup(); setShowBackupAlert(false); }}
+                                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-colors active:scale-95"
+                            >
+                                <DownloadCloud size={14} /> Backup Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Month Selector */}
             <div className="flex items-center justify-between bg-white dark:bg-[#0a3831] p-4 rounded-2xl shadow-sm border border-emerald-100 dark:border-emerald-800/30">
-                <button onClick={() => changeMonth(-1)} aria-label="Previous Month" className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700"><ChevronLeft size={20} className="text-emerald-900 dark:text-emerald-100"/></button>
+                <button onClick={() => { triggerHaptic(5); changeMonth(-1); }} aria-label="Previous Month" className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700"><ChevronLeft size={20} className="text-emerald-900 dark:text-emerald-100"/></button>
                 <h2 className="text-lg font-bold text-emerald-950 dark:text-emerald-50 flex items-center gap-2">
                     <CalendarIcon size={18} className="text-emerald-600"/>
                     {currentMonthName}
                 </h2>
-                <button onClick={() => changeMonth(1)} aria-label="Next Month" className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700"><ChevronRight size={20} className="text-emerald-900 dark:text-emerald-100"/></button>
+                <button onClick={() => { triggerHaptic(5); changeMonth(1); }} aria-label="Next Month" className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700"><ChevronRight size={20} className="text-emerald-900 dark:text-emerald-100"/></button>
             </div>
 
             {/* Budget Card */}
