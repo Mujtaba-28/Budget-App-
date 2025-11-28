@@ -18,6 +18,7 @@ export interface ContextMetadata {
     description?: string;
     timeline: 'weekly' | 'monthly' | 'yearly' | 'project';
     type: 'custom' | 'personal' | 'business';
+    icon?: string; // Icon name identifier for UI rendering
 }
 
 export interface TransactionSplit {

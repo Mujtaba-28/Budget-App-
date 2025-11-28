@@ -1,3 +1,4 @@
+
 import { Transaction, Debt } from './types';
 
 export const formatDate = (dateString: string) => {
@@ -93,6 +94,23 @@ export const fileToGenerativePart = async (file: File) => {
         mimeType: file.type 
     },
   };
+};
+
+export const shareFile = async (file: File, title: string, text: string) => {
+    if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+            await navigator.share({
+                files: [file],
+                title,
+                text
+            });
+            return true;
+        } catch (e) {
+            console.error("Share failed", e);
+            return false;
+        }
+    }
+    return false;
 };
 
 // --- MULTI-CURRENCY UTILS ---

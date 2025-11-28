@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useMe
 import { Transaction, BudgetMap, Subscription, Goal, Debt, BackupData, BudgetContext, ContextMetadata } from '../types';
 import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS, INITIAL_SUBSCRIPTIONS, INITIAL_GOALS, INITIAL_DEBTS } from '../constants';
 import { saveAttachment, deleteAttachment, clearDB, getAllAttachments, restoreAttachments } from '../utils/db';
-import { calculateNextDate } from '../utils';
+import { calculateNextDate, shareFile } from '../utils';
 
 interface FinanceContextType {
   // State
@@ -18,12 +18,13 @@ interface FinanceContextType {
   dataError: boolean;
   isOnboarded: boolean;
   lastBackupDate: string | null;
+  lastCloudSync: string | null;
   
   // Actions
   setUserName: (name: string) => void;
   setActiveContext: (ctx: BudgetContext) => void;
-  addContext: (name: string, initialBudget?: number, description?: string, timeline?: string) => void;
-  updateContext: (id: string, updates: { name?: string; description?: string; timeline?: any; initialBudget?: number }) => void;
+  addContext: (name: string, initialBudget?: number, description?: string, timeline?: string, icon?: string) => void;
+  updateContext: (id: string, updates: { name?: string; description?: string; timeline?: any; initialBudget?: number; icon?: string }) => void;
   deleteContext: (id: string) => void;
   addTransaction: (tx: Transaction) => Promise<void>;
   updateTransaction: (tx: Transaction) => Promise<void>;
@@ -46,6 +47,7 @@ interface FinanceContextType {
 
   resetData: () => Promise<void>;
   createBackup: () => Promise<void>;
+  syncToCloud: () => Promise<void>;
   restoreBackup: (file: File) => Promise<void>;
   completeOnboarding: (name: string, clearData?: boolean, initialBudget?: number) => void;
 }
@@ -64,6 +66,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [isInitialized, setIsInitialized] = useState(false);
   const [isOnboarded, setIsOnboarded] = useState(false);
   const [lastBackupDate, setLastBackupDate] = useState<string | null>(null);
+  const [lastCloudSync, setLastCloudSync] = useState<string | null>(null);
   const [userName, setUserName] = useState('User');
   const [activeContext, setActiveContext] = useState<BudgetContext>('personal');
   const [customContexts, setCustomContexts] = useState<ContextMetadata[]>([]);
@@ -81,9 +84,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const goals = useMemo(() => allGoals.filter(g => (g.context || 'personal') === activeContext), [allGoals, activeContext]);
   const debts = useMemo(() => allDebts.filter(d => (d.context || 'personal') === activeContext), [allDebts, activeContext]);
   
-  // Budget Map is handled differently. Keys are prefixed.
-  // We return the raw map, but consumers must query with the correct prefix.
-
   // --- AUTO PAY LOGIC ---
   useEffect(() => {
       if (isInitialized && allSubscriptions.length > 0) {
@@ -136,6 +136,8 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
             if (storedName) setUserName(storedName);
             const backupDate = localStorage.getItem('emerald_last_backup');
             if (backupDate) setLastBackupDate(backupDate);
+            const syncDate = localStorage.getItem('emerald_last_cloud_sync');
+            if (syncDate) setLastCloudSync(syncDate);
             const savedCtx = localStorage.getItem('emerald_active_context');
             if (savedCtx) setActiveContext(savedCtx as BudgetContext);
             
@@ -144,30 +146,31 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
 
             if (savedCustomContexts) {
                 const parsed = JSON.parse(savedCustomContexts);
-                // Migration: If it's array of strings, convert to Metadata
                 if (Array.isArray(parsed) && typeof parsed[0] === 'string') {
                     loadedContexts = parsed.map((c: string) => ({
                         id: c,
                         name: c,
                         timeline: 'monthly',
-                        type: 'custom'
+                        type: 'custom',
+                        icon: 'Folder'
                     }));
                 } else {
                     loadedContexts = parsed;
                 }
             }
 
-            // Ensure defaults exist (Migration Strategy)
-            const defaults: ContextMetadata[] = [
-                { id: 'personal', name: 'Personal Budget', description: 'Daily expenses', timeline: 'monthly', type: 'personal' },
-                { id: 'business', name: 'Business Budget', description: 'Work expenses', timeline: 'monthly', type: 'business' }
-            ];
-
-            defaults.forEach(def => {
-                if (!loadedContexts.some(c => c.id === def.id)) {
-                    loadedContexts.unshift(def);
-                }
-            });
+            // Migration: Ensure defaults exist IF NOT starting fresh (handled by completeOnboarding logic normally)
+            // But on initial load, if empty, we populate.
+            if (loadedContexts.length === 0 && !onboarded) {
+                 const defaults: ContextMetadata[] = [
+                    { id: 'personal', name: 'Personal Budget', description: 'Daily expenses', timeline: 'monthly', type: 'personal', icon: 'User' },
+                    { id: 'business', name: 'Business Budget', description: 'Work expenses', timeline: 'monthly', type: 'business', icon: 'Briefcase' }
+                ];
+                loadedContexts = defaults;
+            } else if (loadedContexts.length === 0 && onboarded) {
+                // Should not happen, but safe fallback
+                 loadedContexts = [{ id: 'personal', name: 'Personal', timeline: 'monthly', type: 'personal', icon: 'User' }];
+            }
 
             setCustomContexts(loadedContexts);
 
@@ -214,19 +217,37 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   
   const completeOnboarding = (name: string, clearData = false, initialBudget = 0) => {
       setUserName(name);
+      
       if (clearData) {
+          // WIPE MODE: Remove everything
           setTransactions([]);
-          setBudgets(initialBudget ? { 'personal-default': initialBudget } : {});
           setSubscriptions([]);
           setGoals([]);
           setDebts([]);
-      } else if (initialBudget > 0) {
-          setBudgets(prev => ({ ...prev, 'personal-default': initialBudget }));
+          
+          // Re-initialize contexts to ONLY Personal (clean state)
+          const cleanContexts: ContextMetadata[] = [
+              { id: 'personal', name: 'Personal Budget', description: 'Main Budget', timeline: 'monthly', type: 'personal', icon: 'User' }
+          ];
+          setCustomContexts(cleanContexts);
+          setActiveContext('personal');
+
+          // Set Initial Budget for the clean Personal context
+          if (initialBudget > 0) {
+              setBudgets({ 'personal-default': initialBudget });
+          } else {
+              setBudgets({});
+          }
+      } else {
+          // DEMO MODE: Keep defaults but set budget if provided
+          if (initialBudget > 0) {
+              setBudgets(prev => ({ ...prev, 'personal-default': initialBudget }));
+          }
       }
       setIsOnboarded(true);
   };
 
-  const addContext = (name: string, initialBudget: number = 0, description: string = '', timeline: string = 'monthly') => {
+  const addContext = (name: string, initialBudget: number = 0, description: string = '', timeline: string = 'monthly', icon: string = 'Folder') => {
       const id = Date.now().toString();
       
       if (!customContexts.some(c => c.name.toLowerCase() === name.toLowerCase())) {
@@ -235,7 +256,8 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
               name,
               description,
               timeline: timeline as any,
-              type: 'custom'
+              type: 'custom',
+              icon
           };
           setCustomContexts(prev => [...prev, newContext]);
           
@@ -245,7 +267,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
   };
 
-  const updateContext = (id: string, updates: { name?: string; description?: string; timeline?: any; initialBudget?: number }) => {
+  const updateContext = (id: string, updates: { name?: string; description?: string; timeline?: any; initialBudget?: number; icon?: string }) => {
     setCustomContexts(prev => prev.map(ctx => {
         if (ctx.id === id) {
             return {
@@ -253,6 +275,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
                 name: updates.name ?? ctx.name,
                 description: updates.description ?? ctx.description,
                 timeline: updates.timeline ?? ctx.timeline,
+                icon: updates.icon ?? ctx.icon,
             };
         }
         return ctx;
@@ -270,22 +293,18 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
           return;
       }
 
-      // 1. Remove from Context List
       const updatedContexts = customContexts.filter(c => c.id !== id);
       setCustomContexts(updatedContexts);
       
-      // 2. If active context was the deleted one, switch to the first available
       if (activeContext === id) {
           setActiveContext(updatedContexts[0].id);
       }
 
-      // 3. Cleanup Data associated with this context
       setTransactions(prev => prev.filter(t => t.context !== id));
       setSubscriptions(prev => prev.filter(s => s.context !== id));
       setGoals(prev => prev.filter(g => g.context !== id));
       setDebts(prev => prev.filter(d => d.context !== id));
       
-      // Cleanup Budgets (Key filtering)
       setBudgets(prev => {
           const next = { ...prev };
           Object.keys(next).forEach(key => {
@@ -304,7 +323,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const updateTransaction = async (tx: Transaction) => {
       if (tx.attachment) await saveAttachment(tx.id, tx.attachment);
       const optimizedTx = { ...tx, attachment: undefined, hasAttachment: !!tx.attachment || !!tx.hasAttachment };
-      // Preserve context if editing, else default to current
       setTransactions(prev => prev.map(t => t.id === tx.id ? { ...optimizedTx, context: t.context || activeContext } : t));
   };
 
@@ -319,9 +337,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const updateBudget = (amount: number, monthKey: string, category?: string) => {
-      // Key format: 'personal-2025-11' or 'business-2025-11'
       const prefix = activeContext;
-      // Ensure monthKey doesn't already have prefix (for legacy support or logic safety)
       const cleanMonthKey = monthKey.replace(/^(personal|business|.*)-(\d{4}-\d{2})$/, '$2');
       const finalKey = `${prefix}-${cleanMonthKey}`;
 
@@ -349,7 +365,9 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       try { await withTimeout(clearDB(), 1000); } catch (e) {}
       setTransactions([]); setBudgets({}); setSubscriptions([]); setGoals([]); setDebts([]);
       setUserName('User'); setLastBackupDate(null); setDataError(false); setIsOnboarded(false); setCustomContexts([]);
-      if (typeof window !== 'undefined') window.location.hash = '';
+      if (typeof window !== 'undefined') {
+          try { window.location.hash = ''; } catch (e) {}
+      }
   };
 
   const createBackup = async () => {
@@ -358,7 +376,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
           const backup: BackupData = {
               version: 1,
               timestamp: new Date().toISOString(),
-              transactions: allTransactions, // Backup ALL contexts
+              transactions: allTransactions,
               budgets: allBudgets,
               subscriptions: allSubscriptions,
               goals: allGoals,
@@ -382,6 +400,41 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       } catch (e) { alert("Failed to create backup."); }
   };
 
+  const syncToCloud = async () => {
+      try {
+          const attachments = await getAllAttachments();
+          const backup: BackupData = {
+              version: 1,
+              timestamp: new Date().toISOString(),
+              transactions: allTransactions,
+              budgets: allBudgets,
+              subscriptions: allSubscriptions,
+              goals: allGoals,
+              debts: allDebts,
+              attachments,
+              customContexts,
+              theme: {
+                  isDark: JSON.parse(localStorage.getItem('emerald_theme') || 'false'),
+                  currency: localStorage.getItem('emerald_currency') || '₹'
+              }
+          };
+          const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
+          const file = new File([blob], `emerald_backup_${new Date().toISOString().split('T')[0]}.json`, { type: 'application/json' });
+          
+          const success = await shareFile(file, 'Emerald Backup', 'Backing up my financial data.');
+          if (success) {
+              const now = new Date().toISOString();
+              setLastCloudSync(now);
+              localStorage.setItem('emerald_last_cloud_sync', now);
+          } else {
+              createBackup();
+              alert("Native sharing not supported. File downloaded instead.");
+          }
+      } catch (e) {
+          alert("Failed to initiate cloud sync.");
+      }
+  };
+
   const restoreBackup = async (file: File) => {
       try {
           const text = await file.text();
@@ -395,18 +448,13 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
           localStorage.setItem('emerald_onboarded', 'true');
           localStorage.setItem('emerald_last_backup', new Date().toISOString());
           
-          // Handle custom contexts restore (metadata aware)
-          if (data.customContexts) {
-              localStorage.setItem('emerald_custom_contexts', JSON.stringify(data.customContexts));
-          }
-          
+          if (data.customContexts) localStorage.setItem('emerald_custom_contexts', JSON.stringify(data.customContexts));
           if (data.theme) {
               localStorage.setItem('emerald_theme', JSON.stringify(data.theme.isDark));
               localStorage.setItem('emerald_currency', data.theme.currency);
           }
           if (data.attachments) await restoreAttachments(data.attachments);
           else await clearDB();
-          alert("Backup restored. Reloading...");
           window.location.reload();
       } catch (e) { alert("Failed to restore backup."); }
   };
@@ -414,13 +462,13 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   return (
     <FinanceContext.Provider value={{
       userName, setUserName, activeContext, setActiveContext, customContexts,
-      transactions, budgets: allBudgets, subscriptions, goals, debts, dataError, isOnboarded, lastBackupDate,
+      transactions, budgets: allBudgets, subscriptions, goals, debts, dataError, isOnboarded, lastBackupDate, lastCloudSync,
       addTransaction, updateTransaction, deleteTransaction, importTransactions,
       updateBudget, addContext, updateContext, deleteContext,
       addSubscription, updateSubscription, deleteSubscription,
       addGoal, updateGoal, deleteGoal,
       addDebt, updateDebt, deleteDebt,
-      resetData, createBackup, restoreBackup, completeOnboarding
+      resetData, createBackup, syncToCloud, restoreBackup, completeOnboarding
     }}>
       {children}
     </FinanceContext.Provider>

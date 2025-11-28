@@ -1,6 +1,5 @@
-
 import React, { useRef, useState } from 'react';
-import { Upload, Download, Settings, ChevronRight, Save, FolderOpen, FileText, Edit2, RefreshCw, Trash2, Check, Palette } from 'lucide-react';
+import { Upload, Download, Settings, ChevronRight, Save, FolderOpen, FileText, Edit2, RefreshCw, Trash2, Check, Palette, Cloud } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { parseCSV, triggerHaptic, formatDate } from '../../utils';
@@ -13,7 +12,7 @@ interface AccountsViewProps {
 }
 
 export const AccountsView: React.FC<AccountsViewProps> = ({ onOpenSettings }) => {
-    const { transactions, budgets, importTransactions, createBackup, restoreBackup, userName, setUserName, lastBackupDate, resetData } = useFinance();
+    const { transactions, budgets, importTransactions, createBackup, syncToCloud, restoreBackup, userName, setUserName, lastBackupDate, lastCloudSync, resetData } = useFinance();
     const { currency } = useTheme();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const backupInputRef = useRef<HTMLInputElement>(null);
@@ -182,9 +181,16 @@ export const AccountsView: React.FC<AccountsViewProps> = ({ onOpenSettings }) =>
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest px-2">Data Management</h3>
                 <div className="rounded-2xl overflow-hidden border border-emerald-100 dark:border-emerald-800/30 shadow-sm">
                     <ListItem 
+                        icon={Cloud} 
+                        label="Cloud Sync" 
+                        subLabel={lastCloudSync ? `Synced: ${formatDate(lastCloudSync)}` : 'Save to Drive/iCloud'} 
+                        onClick={() => { syncToCloud(); triggerHaptic(20); }} 
+                        color="sky"
+                    />
+                    <ListItem 
                         icon={Save} 
                         label="Backup Data" 
-                        subLabel={lastBackupDate ? `Last: ${formatDate(lastBackupDate)}` : 'Never backed up'} 
+                        subLabel={lastBackupDate ? `Last: ${formatDate(lastBackupDate)}` : 'Local file download'} 
                         onClick={() => { createBackup(); triggerHaptic(20); }} 
                         color="emerald"
                     />

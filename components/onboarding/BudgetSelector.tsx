@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { User, Briefcase, ChevronRight, Wallet, Building2, Plus, X, Folder, Check, Trash2, Calendar, FileText, Edit2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { User, Briefcase, ChevronRight, Wallet, Building2, Plus, X, Folder, Check, Trash2, Calendar, Edit2, Home, Car, Gift, Zap, ShoppingBag, Plane, Coffee, CreditCard, Heart, Laptop, Smartphone, Smile } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { BudgetContext, ContextMetadata } from '../../types';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -24,9 +24,28 @@ export const BudgetSelector: React.FC<BudgetSelectorProps> = ({ onSelect, userNa
   const [initialBudget, setInitialBudget] = useState('');
   const [description, setDescription] = useState('');
   const [timeline, setTimeline] = useState('monthly');
+  const [selectedIcon, setSelectedIcon] = useState('Folder');
 
   // Delete State
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const availableIcons = [
+      { name: 'Folder', icon: Folder },
+      { name: 'User', icon: User },
+      { name: 'Briefcase', icon: Briefcase },
+      { name: 'Home', icon: Home },
+      { name: 'Car', icon: Car },
+      { name: 'Gift', icon: Gift },
+      { name: 'Zap', icon: Zap },
+      { name: 'ShoppingBag', icon: ShoppingBag },
+      { name: 'Plane', icon: Plane },
+      { name: 'Coffee', icon: Coffee },
+      { name: 'CreditCard', icon: CreditCard },
+      { name: 'Heart', icon: Heart },
+      { name: 'Laptop', icon: Laptop },
+      { name: 'Smartphone', icon: Smartphone },
+      { name: 'Smile', icon: Smile },
+  ];
 
   const openForm = (mode: 'create' | 'edit', context?: ContextMetadata) => {
     setFormState({ mode, context });
@@ -34,6 +53,7 @@ export const BudgetSelector: React.FC<BudgetSelectorProps> = ({ onSelect, userNa
         setName(context.name);
         setDescription(context.description || '');
         setTimeline(context.timeline);
+        setSelectedIcon(context.icon || 'Folder');
         const budgetKey = `${context.id}-default`;
         const budgetAmount = budgets[budgetKey];
         setInitialBudget(budgetAmount ? budgetAmount.toString() : '');
@@ -42,6 +62,7 @@ export const BudgetSelector: React.FC<BudgetSelectorProps> = ({ onSelect, userNa
         setInitialBudget('');
         setDescription('');
         setTimeline('monthly');
+        setSelectedIcon('Folder');
     }
   };
 
@@ -54,13 +75,14 @@ export const BudgetSelector: React.FC<BudgetSelectorProps> = ({ onSelect, userNa
     if (name.trim() && formState) {
         const amount = parseFloat(initialBudget) || 0;
         if (formState.mode === 'create') {
-            addContext(name.trim(), amount, description, timeline);
+            addContext(name.trim(), amount, description, timeline, selectedIcon);
         } else if (formState.mode === 'edit' && formState.context) {
             updateContext(formState.context.id, {
                 name: name.trim(),
                 description,
                 timeline,
-                initialBudget: amount
+                initialBudget: amount,
+                icon: selectedIcon
             });
         }
         closeForm();
@@ -82,16 +104,25 @@ export const BudgetSelector: React.FC<BudgetSelectorProps> = ({ onSelect, userNa
       { value: 'project', label: 'Project Based' },
   ];
 
-  const getContextStyle = (type: string) => {
-      switch(type) {
-          case 'personal': return { icon: User, color: 'indigo', decor: <Wallet size={100}/> };
-          case 'business': return { icon: Briefcase, color: 'teal', decor: <Building2 size={100}/> };
-          default: return { icon: Folder, color: 'blue', decor: <Folder size={100}/> };
-      }
+  const getContextStyle = (ctx: ContextMetadata) => {
+      // Find the icon in our map, default to Folder if string logic fails
+      const IconObj = availableIcons.find(i => i.name === ctx.icon) || { icon: Folder };
+      const Icon = IconObj.icon;
+      
+      // Determine color based on type or icon for variety
+      let color = 'blue';
+      if (ctx.type === 'personal') color = 'indigo';
+      else if (ctx.type === 'business') color = 'teal';
+      else if (ctx.icon === 'Home') color = 'orange';
+      else if (ctx.icon === 'Car') color = 'rose';
+      else if (ctx.icon === 'Plane') color = 'sky';
+      else if (ctx.icon === 'Gift') color = 'pink';
+      
+      return { icon: Icon, color, decor: <Icon size={100}/> };
   };
 
   const renderCard = (ctx: ContextMetadata) => {
-      const style = getContextStyle(ctx.type);
+      const style = getContextStyle(ctx);
       const Icon = style.icon;
       const color = style.color;
 
@@ -113,7 +144,7 @@ export const BudgetSelector: React.FC<BudgetSelectorProps> = ({ onSelect, userNa
                 </div>
                 <div className="relative z-10">
                     <h3 className="text-lg font-bold text-emerald-950 dark:text-emerald-50 capitalize">{ctx.name}</h3>
-                    <p className="text-xs text-slate-400 font-medium mt-1 line-clamp-2">{ctx.description}</p>
+                    <p className="text-xs text-slate-400 font-medium mt-1 line-clamp-2">{ctx.description || 'No description'}</p>
                     {ctx.timeline && (
                         <div className="mt-3 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 dark:bg-black/20 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                             <Calendar size={10}/> {ctx.timeline}
@@ -159,7 +190,7 @@ export const BudgetSelector: React.FC<BudgetSelectorProps> = ({ onSelect, userNa
 
       {formState && (
          <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center bg-emerald-950/20 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <form onSubmit={handleSubmit} className="bg-white dark:bg-[#0a3831] w-full max-w-sm p-6 rounded-[2rem] border border-emerald-100 dark:border-emerald-800/30 shadow-xl animate-in slide-in-from-bottom-10 duration-300">
+            <form onSubmit={handleSubmit} className="bg-white dark:bg-[#0a3831] w-full max-w-sm p-6 rounded-[2rem] border border-emerald-100 dark:border-emerald-800/30 shadow-xl animate-in slide-in-from-bottom-10 duration-300 overflow-y-auto max-h-[90vh]">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-emerald-950 dark:text-emerald-50 text-lg">{formState.mode === 'create' ? 'New Budget Plan' : 'Edit Budget Plan'}</h3>
                     <button type="button" onClick={closeForm} className="p-2 rounded-full bg-slate-100 dark:bg-black/20 hover:bg-rose-100 hover:text-rose-500 transition-colors"><X size={18}/></button>
@@ -169,6 +200,26 @@ export const BudgetSelector: React.FC<BudgetSelectorProps> = ({ onSelect, userNa
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Budget Name</label>
                         <input type="text" autoFocus placeholder="e.g. Holiday Fund" className="w-full p-3.5 rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-100 dark:border-emerald-900/30 focus:border-emerald-500 outline-none font-bold text-emerald-900 dark:text-emerald-100 text-sm transition-all" value={name} onChange={(e) => setName(e.target.value)} />
                     </div>
+                    
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Icon</label>
+                        <div className="bg-slate-50 dark:bg-black/20 p-3 rounded-2xl border border-slate-100 dark:border-emerald-900/30 grid grid-cols-5 gap-2 max-h-32 overflow-y-auto scrollbar-hide">
+                            {availableIcons.map(item => {
+                                const Icon = item.icon;
+                                return (
+                                    <button 
+                                        key={item.name}
+                                        type="button"
+                                        onClick={() => setSelectedIcon(item.name)}
+                                        className={`p-2 rounded-xl flex items-center justify-center transition-all ${selectedIcon === item.name ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:bg-white dark:hover:bg-emerald-900/30'}`}
+                                    >
+                                        <Icon size={20}/>
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </div>
+
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Description (Optional)</label>
                         <input type="text" placeholder="What is this for?" className="w-full p-3.5 rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-100 dark:border-emerald-900/30 focus:border-emerald-500 outline-none font-bold text-emerald-900 dark:text-emerald-100 text-sm transition-all" value={description} onChange={(e) => setDescription(e.target.value)} />

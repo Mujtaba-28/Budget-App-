@@ -95,6 +95,23 @@ export const fileToGenerativePart = async (file: File) => {
   };
 };
 
+export const shareFile = async (file: File, title: string, text: string) => {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+            await navigator.share({
+                files: [file],
+                title,
+                text
+            });
+            return true;
+        } catch (e) {
+            console.error("Share failed", e);
+            return false;
+        }
+    }
+    return false;
+};
+
 // --- MULTI-CURRENCY UTILS ---
 const EXCHANGE_RATES: Record<string, number> = {
     'INR': 1,

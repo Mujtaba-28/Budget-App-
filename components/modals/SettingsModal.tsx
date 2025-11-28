@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Moon, Sun, Lock, Unlock, HelpCircle } from 'lucide-react';
+import { X, Moon, Sun, Lock, Unlock, HelpCircle, ScanFace, Check } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useFinance } from '../../contexts/FinanceContext';
+import { registerBiometric, isBiometricAvailable } from '../../utils/security';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -11,9 +12,13 @@ interface SettingsModalProps {
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenTutorial }) => {
     const { isDark, toggleTheme, currency, setCurrency } = useTheme();
+    const { userName } = useFinance();
     
     // Lock State
     const [hasPin, setHasPin] = useState(false);
+    const [bioActive, setBioActive] = useState(false);
+    const [bioAvailable, setBioAvailable] = useState(false);
+    
     const [mode, setMode] = useState<'view' | 'set' | 'change' | 'remove'>('view');
     const [step, setStep] = useState<'verify' | 'new' | 'confirm'>('new');
     const [inputPin, setInputPin] = useState('');
@@ -21,6 +26,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenTut
     useEffect(() => {
         const storedPin = localStorage.getItem('emerald_pin');
         setHasPin(!!storedPin);
+        setBioActive(localStorage.getItem('emerald_biometric_active') === 'true');
+        
+        isBiometricAvailable().then(setBioAvailable);
     }, []);
     
     const currencies = [ { symbol: '₹', name: 'INR' }, { symbol: '$', name: 'USD' }, { symbol: '€', name: 'EUR' }, { symbol: '£', name: 'GBP' } ];
@@ -56,12 +64,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenTut
         } else if (mode === 'remove') {
              if (inputPin === storedPin) {
                  localStorage.removeItem('emerald_pin');
+                 localStorage.removeItem('emerald_biometric_active'); // Disable bio if pin removed
                  setHasPin(false);
+                 setBioActive(false);
                  setMode('view');
              } else {
                  alert('Incorrect PIN');
                  setInputPin('');
              }
+        }
+    };
+
+    const toggleBiometric = async () => {
+        if (!hasPin) {
+            alert("Please set a PIN first.");
+            return;
+        }
+
+        if (bioActive) {
+            localStorage.removeItem('emerald_biometric_active');
+            setBioActive(false);
+        } else {
+            const success = await registerBiometric(userName);
+            if (success) {
+                setBioActive(true);
+            } else {
+                alert("Failed to register Biometrics. Ensure your device supports FaceID/TouchID.");
+            }
         }
     };
 
@@ -124,23 +153,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenTut
                     {/* Security */}
                     <div className="bg-white dark:bg-[#0a3831] rounded-2xl border border-emerald-50 dark:border-emerald-800/30 overflow-hidden">
                         {mode === 'view' && (
-                            <div className="p-4">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className={`p-2 rounded-xl ${hasPin ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
-                                        {hasPin ? <Lock size={20}/> : <Unlock size={20}/>}
+                            <div className="p-4 space-y-4">
+                                {/* PIN Section */}
+                                <div>
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className={`p-2 rounded-xl ${hasPin ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+                                            {hasPin ? <Lock size={20}/> : <Unlock size={20}/>}
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-emerald-950 dark:text-emerald-50">App Lock</h4>
+                                            <p className="text-xs text-slate-400">{hasPin ? 'PIN Active' : 'No PIN Set'}</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h4 className="font-bold text-emerald-950 dark:text-emerald-50">App Lock</h4>
-                                        <p className="text-xs text-slate-400">{hasPin ? 'PIN Active' : 'No PIN Set'}</p>
-                                    </div>
+                                    {hasPin ? (
+                                        <div className="flex gap-2">
+                                            <button onClick={() => { setMode('change'); setStep('verify'); setInputPin(''); }} className="flex-1 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300">Change PIN</button>
+                                            <button onClick={() => { setMode('remove'); setInputPin(''); }} className="flex-1 py-2 bg-rose-50 dark:bg-rose-900/30 rounded-xl text-xs font-bold text-rose-500">Remove</button>
+                                        </div>
+                                    ) : (
+                                        <button onClick={() => { setMode('set'); setInputPin(''); }} className="w-full py-2 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold">Set PIN</button>
+                                    )}
                                 </div>
-                                {hasPin ? (
-                                    <div className="flex gap-2">
-                                        <button onClick={() => { setMode('change'); setStep('verify'); setInputPin(''); }} className="flex-1 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300">Change PIN</button>
-                                        <button onClick={() => { setMode('remove'); setInputPin(''); }} className="flex-1 py-2 bg-rose-50 dark:bg-rose-900/30 rounded-xl text-xs font-bold text-rose-500">Remove</button>
+
+                                {/* Biometric Section */}
+                                {hasPin && bioAvailable && (
+                                    <div className="pt-4 border-t border-slate-100 dark:border-emerald-900/30">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-500 dark:text-slate-400">
+                                                    <ScanFace size={20}/>
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-bold text-emerald-950 dark:text-emerald-50 text-sm">FaceID / TouchID</h4>
+                                                    <p className="text-xs text-slate-400">Faster unlock</p>
+                                                </div>
+                                            </div>
+                                            <button 
+                                                onClick={toggleBiometric}
+                                                className={`w-12 h-7 rounded-full transition-colors flex items-center px-1 ${bioActive ? 'bg-emerald-500 justify-end' : 'bg-slate-200 justify-start'}`}
+                                            >
+                                                <div className="w-5 h-5 bg-white rounded-full shadow-sm"></div>
+                                            </button>
+                                        </div>
                                     </div>
-                                ) : (
-                                    <button onClick={() => { setMode('set'); setInputPin(''); }} className="w-full py-2 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold">Set PIN</button>
                                 )}
                             </div>
                         )}
