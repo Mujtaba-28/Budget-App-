@@ -6,7 +6,10 @@ import { TransactionItem } from '../TransactionItem';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../../constants';
 import { useFinance } from '../../contexts/FinanceContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { FixedSizeList as List } from 'react-window';
+import * as ReactWindow from 'react-window';
+
+// Safe import for build compatibility
+const List = ReactWindow.FixedSizeList;
 
 interface HistoryViewProps {
   onEditTx: (tx: Transaction) => void;
