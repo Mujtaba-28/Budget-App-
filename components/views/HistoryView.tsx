@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Filter, ArrowUp, ArrowDown, Search } from 'lucide-react';
 import { Transaction } from '../../types';
@@ -6,10 +5,7 @@ import { TransactionItem } from '../TransactionItem';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../../constants';
 import { useFinance } from '../../contexts/FinanceContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import * as ReactWindow from 'react-window';
-
-// Safe import for build compatibility
-const List = ReactWindow.FixedSizeList;
+import { FixedSizeList as List } from 'react-window';
 
 interface HistoryViewProps {
   onEditTx: (tx: Transaction) => void;
